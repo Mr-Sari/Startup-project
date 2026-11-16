@@ -21,6 +21,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { ZatcaQrImage } from "@/components/zatca-qr-image";
 
 type StreamedWidgetType = "none" | "overdue-report" | "compliance-audit" | "route-optimizer" | "qr-card";
 
@@ -300,11 +301,11 @@ export function MishwarAICopilot({
                   {/* Generative Widget 4: QR Code Generator */}
                   {activeWidget === "qr-card" && (
                     <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-center space-y-3">
-                      <div className="w-28 h-28 mx-auto bg-white p-3 rounded-xl flex items-center justify-center shadow-inner">
-                        <QrCode className="w-full h-full text-slate-950" />
+                      <div className="mx-auto w-fit">
+                        <ZatcaQrImage value="http://localhost:3000/darb-alaman" size={136} />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-white">الرابط المباشر لمؤسسة درب الأمان</div>
+                        <div className="text-xs font-bold text-white">الرابط المباشر لمؤسسة درب الأمان (امسح بالكاميرا)</div>
                         <div className="text-[11px] font-mono text-emerald-400 dir-ltr mt-0.5">
                           https://mishwar.sa/darb-alaman
                         </div>

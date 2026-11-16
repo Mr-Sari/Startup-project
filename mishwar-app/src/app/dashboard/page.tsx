@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Users,
   Bus,
@@ -16,11 +17,10 @@ import {
   ShieldCheck,
   UserCheck,
   MapPin,
-  FileText,
-  Sparkles,
   QrCode,
-  Ban,
-  Check
+  RefreshCw,
+  Settings,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MishwarAICopilot } from "@/components/mishwar-ai-copilot";
+import { ZatcaQrImage } from "@/components/zatca-qr-image";
+import type {
+  TenantProfile,
+  StudentRecord,
+  BusRecord,
+  DriverRecord,
+  RouteRecord,
+  AuditLogEntry,
+  NotificationLogEntry,
+} from "@/lib/db";
 
 type DashboardSection =
   | "subscriptions"
@@ -60,185 +70,50 @@ type DashboardSection =
   | "drivers"
   | "routes"
   | "compliance"
-  | "staff";
+  | "staff"
+  | "settings";
 
-export default function EnterpriseDashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const currentSlug = searchParams?.get("tenant") || "darb-alaman";
+
   const [activeSection, setActiveSection] = useState<DashboardSection>("subscriptions");
+  const [tenant, setTenant] = useState<TenantProfile | null>(null);
+  const [allTenants, setAllTenants] = useState<TenantProfile[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [buses, setBuses] = useState<BusRecord[]>([]);
+  const [drivers, setDrivers] = useState<DriverRecord[]>([]);
+  const [routes, setRoutes] = useState<RouteRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [notifications, setNotifications] = useState<NotificationLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Student Subscriptions State
-  const [students, setStudents] = useState([
-    {
-      id: "1",
-      name: "سارة العتيبي",
-      phone: "0501112233",
-      guardianPhone: "0509998877",
-      district: "حي الياسمين",
-      university: "جامعة الأميرة نورة",
-      bus: "حافلة 01",
-      status: "paid",
-      amount: 650,
-      invoiceNo: "INV-2026-101",
-    },
-    {
-      id: "2",
-      name: "منيرة الدوسري",
-      phone: "0554445566",
-      guardianPhone: "0551112299",
-      district: "حي النرجس",
-      university: "جامعة الأميرة نورة",
-      bus: "حافلة 01",
-      status: "overdue",
-      amount: 650,
-      invoiceNo: "INV-2026-102",
-    },
-    {
-      id: "3",
-      name: "شهد الشمري",
-      phone: "0567778899",
-      guardianPhone: "0563334455",
-      district: "حي الملقا",
-      university: "جامعة الملك سعود",
-      bus: "حافلة 02",
-      status: "paid",
-      amount: 650,
-      invoiceNo: "INV-2026-103",
-    },
-    {
-      id: "4",
-      name: "نورة المطيري",
-      phone: "0532223344",
-      guardianPhone: "0538887766",
-      district: "حي الصحافة",
-      university: "جامعة الملك سعود",
-      bus: "حافلة 02",
-      status: "suspended",
-      amount: 650,
-      invoiceNo: "INV-2026-104",
-    },
-  ]);
+  // Company Settings Form State
+  const [settingsForm, setSettingsForm] = useState({
+    name: "",
+    crNumber: "",
+    vatNumber: "",
+    licenseNumber: "",
+    whatsappPhone: "",
+    supportPhone: "",
+    iban: "",
+    city: "",
+    primaryColor: "#0F172A",
+    monthlyFee: "650",
+    districtsText: "",
+  });
 
-  // 2. Fleet Buses State
-  const [buses, setBuses] = useState([
-    {
-      id: "b1",
-      plate: "أ ب ج 1234",
-      model: "مرسيدس سبرنتر 2024",
-      capacity: 30,
-      assignedDriver: "محمد السعيد",
-      route: "مسار الياسمين والنرجس ➔ جامعة نورة",
-      operationCardNo: "TGA-99214",
-      operationCardExpiry: "2026-11-28",
-      daysLeft: 12,
-      status: "warning",
-    },
-    {
-      id: "b2",
-      plate: "د هـ و 5678",
-      model: "تويوتا كوستر 2023",
-      capacity: 22,
-      assignedDriver: "عبدالله الشمري",
-      route: "مسار الملقا والصحافة ➔ جامعة الملك سعود",
-      operationCardNo: "TGA-88123",
-      operationCardExpiry: "2027-04-15",
-      daysLeft: 150,
-      status: "active",
-    },
-    {
-      id: "b3",
-      plate: "ر ز س 9012",
-      model: "مرسيدس سبرنتر 2023",
-      capacity: 30,
-      assignedDriver: "خالد الحربي",
-      route: "مسار الروضة والقدس ➔ جامعة الإمام",
-      operationCardNo: "TGA-77641",
-      operationCardExpiry: "2027-06-20",
-      daysLeft: 216,
-      status: "active",
-    },
-  ]);
-
-  // 3. Drivers State
-  const [drivers, setDrivers] = useState([
-    {
-      id: "d1",
-      name: "محمد السعيد",
-      phone: "0501112233",
-      nationalId: "1089223344",
-      licenseType: "نقل ثقيل / حافلة",
-      licenseExpiry: "2026-12-04",
-      driverCardNo: "DRV-10023",
-      daysLeft: 18,
-      busAssigned: "حافلة 01 (أ ب ج 1234)",
-      status: "warning",
-    },
-    {
-      id: "d2",
-      name: "عبدالله الشمري",
-      phone: "0554445566",
-      nationalId: "1045332211",
-      licenseType: "نقل ثقيل / حافلة",
-      licenseExpiry: "2027-08-10",
-      driverCardNo: "DRV-20045",
-      daysLeft: 260,
-      busAssigned: "حافلة 02 (د هـ و 5678)",
-      status: "active",
-    },
-    {
-      id: "d3",
-      name: "خالد الحربي",
-      phone: "0567778899",
-      nationalId: "1077665544",
-      licenseType: "نقل ثقيل / حافلة",
-      licenseExpiry: "2027-09-15",
-      driverCardNo: "DRV-30089",
-      daysLeft: 295,
-      busAssigned: "حافلة 03 (ر ز س 9012)",
-      status: "active",
-    },
-  ]);
-
-  // 4. Routes State
-  const [routes, setRoutes] = useState([
-    {
-      id: "r1",
-      name: "مسار شمال الرياض (أ)",
-      districts: "حي الياسمين، حي النرجس",
-      university: "جامعة الأميرة نورة بنت عبدالرحمن",
-      monthlyPrice: 650,
-      bus: "حافلة 01 (30 مقعد)",
-      enrolled: 29,
-    },
-    {
-      id: "r2",
-      name: "مسار شمال الرياض (ب)",
-      districts: "حي الملقا، حي الصحافة",
-      university: "جامعة الملك سعود",
-      monthlyPrice: 650,
-      bus: "حافلة 02 (22 مقعد)",
-      enrolled: 19,
-    },
-    {
-      id: "r3",
-      name: "مسار شرق الرياض",
-      districts: "حي الروضة، حي القدس",
-      university: "جامعة الإمام محمد بن سعود",
-      monthlyPrice: 600,
-      bus: "حافلة 03 (30 مقعد)",
-      enrolled: 26,
-    },
-  ]);
-
-  // 5. Staff & Permissions State
   const [staff] = useState([
     { id: "s1", name: "فهد العتيبي", role: "مالك المؤسسة (صلاحية كاملة)", phone: "0501234567", status: "نشط" },
     { id: "s2", name: "عمر الدوسري", role: "مشرف حركة وباصات", phone: "0552345678", status: "نشط" },
     { id: "s3", name: "سلمان القحطاني", role: "محاسب وتحصيل وفواتير", phone: "0563456789", status: "نشط" },
   ]);
 
-  // Modals & Form States
   const [isBusModalOpen, setIsBusModalOpen] = useState(false);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [isRouteModalOpen, setIsRouteModalOpen] = useState(false);
+  const [selectedInvoiceStudent, setSelectedInvoiceStudent] = useState<StudentRecord | null>(null);
 
   const [newBus, setNewBus] = useState({
     plate: "",
@@ -273,121 +148,215 @@ export default function EnterpriseDashboardPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleAddBus = (e: React.FormEvent) => {
-    e.preventDefault();
-    setBuses([
-      ...buses,
-      {
-        id: `b${buses.length + 1}`,
-        plate: newBus.plate,
-        model: newBus.model || "مرسيدس سبرنتر 2025",
-        capacity: Number(newBus.capacity) || 30,
-        assignedDriver: newBus.assignedDriver,
-        route: newBus.route,
-        operationCardNo: newBus.cardNo || `TGA-${Math.floor(10000 + Math.random() * 90000)}`,
-        operationCardExpiry: newBus.cardExpiry || "2027-12-30",
-        daysLeft: 365,
-        status: "active",
-      },
-    ]);
-    setIsBusModalOpen(false);
-    setNewBus({
-      plate: "",
-      model: "",
-      capacity: "30",
-      assignedDriver: "محمد السعيد",
-      route: "مسار الياسمين والنرجس ➔ جامعة نورة",
-      cardNo: "",
-      cardExpiry: "",
-    });
-    showToast("تمت إضافة الحافلة الجديدة وربط بطاقة التشغيل بنجاح.");
+  const loadTenantData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/tenant-data?tenant=${currentSlug}`);
+      const data = await res.json();
+      if (data.tenant) {
+        setTenant(data.tenant);
+        setSettingsForm({
+          name: data.tenant.name || "",
+          crNumber: data.tenant.crNumber || "",
+          vatNumber: data.tenant.vatNumber || "",
+          licenseNumber: data.tenant.licenseNumber || "",
+          whatsappPhone: data.tenant.whatsappPhone || "",
+          supportPhone: data.tenant.supportPhone || "",
+          iban: data.tenant.iban || "",
+          city: data.tenant.city || "",
+          primaryColor: data.tenant.primaryColor || "#0F172A",
+          monthlyFee: String(data.tenant.monthlyFee || 650),
+          districtsText: (data.tenant.districts || []).join("، "),
+        });
+      }
+      setAllTenants(data.allTenants || []);
+      setStudents(data.students || []);
+      setBuses(data.buses || []);
+      setDrivers(data.drivers || []);
+      setRoutes(data.routes || []);
+      setAuditLogs(data.auditLogs || []);
+      setNotifications(data.notifications || []);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddDriver = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadTenantData();
+  }, [currentSlug]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    setDrivers([
-      ...drivers,
-      {
-        id: `d${drivers.length + 1}`,
-        name: newDriver.name,
-        phone: newDriver.phone,
-        nationalId: newDriver.nationalId,
-        licenseType: "نقل ثقيل / حافلة",
-        licenseExpiry: newDriver.licenseExpiry || "2027-12-30",
-        driverCardNo: `DRV-${Math.floor(10000 + Math.random() * 90000)}`,
-        daysLeft: 365,
-        busAssigned: newDriver.busAssigned,
-        status: "active",
-      },
-    ]);
-    setIsDriverModalOpen(false);
-    setNewDriver({
-      name: "",
-      phone: "",
-      nationalId: "",
-      busAssigned: "حافلة 01 (أ ب ج 1234)",
-      licenseExpiry: "",
+    const res = await fetch("/api/tenant-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "UPDATE_TENANT_SETTINGS",
+        tenantSlug: currentSlug,
+        payload: settingsForm,
+      }),
     });
-    showToast("تم تسجيل السائق الجديد وإرسال رابط شاشة السائق إلى جواله.");
+    if (res.ok) {
+      await loadTenantData();
+      showToast(
+        "تم حفظ البيانات الأساسية للمؤسسة وتحديث الرقم الضريبي في فواتير ZATCA ورقم الواتساب بنجاح."
+      );
+    }
   };
 
-  const handleAddRoute = (e: React.FormEvent) => {
+  const handleAddBus = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRoutes([
-      ...routes,
-      {
-        id: `r${routes.length + 1}`,
-        name: newRoute.name,
-        districts: newRoute.districts,
-        university: newRoute.university,
-        monthlyPrice: Number(newRoute.monthlyPrice) || 650,
-        bus: newRoute.bus,
-        enrolled: 0,
-      },
-    ]);
-    setIsRouteModalOpen(false);
-    setNewRoute({
-      name: "",
-      districts: "",
-      university: "جامعة الأميرة نورة بنت عبدالرحمن",
-      monthlyPrice: "650",
-      bus: "حافلة 01 (30 مقعد)",
+    const res = await fetch("/api/tenant-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "ADD_BUS",
+        tenantSlug: currentSlug,
+        payload: newBus,
+      }),
     });
-    showToast("تم نشر المسار الجديد في موقع المؤسسة للطالبات.");
+    if (res.ok) {
+      await loadTenantData();
+      setIsBusModalOpen(false);
+      setNewBus({
+        plate: "",
+        model: "",
+        capacity: "30",
+        assignedDriver: "محمد السعيد",
+        route: "مسار الياسمين والنرجس ➔ جامعة نورة",
+        cardNo: "",
+        cardExpiry: "",
+      });
+      showToast("تمت إضافة الحافلة الجديدة وربط بطاقة التشغيل بنجاح.");
+    }
   };
 
-  const toggleStudentSuspension = (studentId: string) => {
-    setStudents((prev) =>
-      prev.map((s) => {
-        if (s.id !== studentId) return s;
-        const nextStatus = s.status === "suspended" ? "paid" : "suspended";
-        showToast(
-          nextStatus === "suspended"
-            ? `تم إيقاف مقعد الطالبة (${s.name}) وحجبه من قائمة السائق.`
-            : `تم تفعيل مقعد الطالبة (${s.name}) وإعادته لقائمة السائق.`
-        );
-        return { ...s, status: nextStatus };
-      })
-    );
+  const handleAddDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/tenant-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "ADD_DRIVER",
+        tenantSlug: currentSlug,
+        payload: newDriver,
+      }),
+    });
+    if (res.ok) {
+      await loadTenantData();
+      setIsDriverModalOpen(false);
+      setNewDriver({
+        name: "",
+        phone: "",
+        nationalId: "",
+        busAssigned: "حافلة 01 (أ ب ج 1234)",
+        licenseExpiry: "",
+      });
+      showToast("تم تسجيل السائق الجديد وإرسال رابط شاشة السائق إلى جواله.");
+    }
   };
+
+  const handleAddRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/tenant-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "ADD_ROUTE",
+        tenantSlug: currentSlug,
+        payload: newRoute,
+      }),
+    });
+    if (res.ok) {
+      await loadTenantData();
+      setIsRouteModalOpen(false);
+      setNewRoute({
+        name: "",
+        districts: "",
+        university: "جامعة الأميرة نورة بنت عبدالرحمن",
+        monthlyPrice: "650",
+        bus: "حافلة 01 (30 مقعد)",
+      });
+      showToast("تم نشر المسار الجديد في موقع المؤسسة للطالبات.");
+    }
+  };
+
+  const toggleStudentSuspension = async (studentId: string) => {
+    const res = await fetch("/api/tenant-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "TOGGLE_SUSPENSION",
+        tenantSlug: currentSlug,
+        payload: { studentId },
+      }),
+    });
+    if (res.ok) {
+      await loadTenantData();
+      showToast("تم تحديث حالة مقعد الطالبة ومزامنته مع شاشة السائق.");
+    }
+  };
+
+  const sendWhatsAppPaymentReminder = async (student: StudentRecord) => {
+    const res = await fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantSlug: currentSlug,
+        recipientPhone: student.guardianPhone,
+        studentName: student.name,
+        messageType: "payment_reminder",
+        amount: student.amount,
+      }),
+    });
+    if (res.ok) {
+      await loadTenantData();
+      showToast(
+        `تم إرسال رسالة تذكير من واتساب المؤسسة (${tenant?.whatsappPhone}) لولي أمر الطالبة (${student.name}).`
+      );
+    }
+  };
+
+  const totalCollected = students
+    .filter((s) => s.status === "paid")
+    .reduce((acc, cur) => acc + cur.amount, 0);
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row text-foreground">
       {/* Formal Sidebar */}
-      <aside className="w-full md:w-68 bg-slate-950 text-slate-300 p-5 flex flex-col justify-between border-l border-slate-800 shrink-0">
+      <aside className="w-full md:w-72 bg-slate-950 text-slate-300 p-5 flex flex-col justify-between border-l border-slate-800 shrink-0">
         <div>
-          {/* Brand Header */}
-          <div className="flex items-center gap-3 pb-5 border-b border-slate-800 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-white shadow-xs">
-              <Bus className="w-5 h-5 text-emerald-400" />
+          {/* Tenant Switcher & Add New Company Button */}
+          <div className="pb-4 border-b border-slate-800 mb-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-400">المؤسسة الحالية:</span>
+              <Link
+                href="/register-tenant"
+                className="text-[11px] text-emerald-400 hover:underline font-bold flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>إضافة مؤسسة جديدة</span>
+              </Link>
             </div>
-            <div>
-              <div className="font-bold text-white text-sm">مؤسسة درب الأمان</div>
-              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>باقة Pro • ترخيص ت-10452</span>
+
+            <select
+              value={currentSlug}
+              onChange={(e) => router.push(`/dashboard?tenant=${e.target.value}`)}
+              className="w-full h-9 px-2.5 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs font-bold focus:outline-none"
+            >
+              {allTenants.map((t) => (
+                <option key={t.id} value={t.slug}>
+                  {t.name} ({t.slug})
+                </option>
+              ))}
+            </select>
+
+            {tenant && (
+              <div className="text-[10px] text-slate-400 space-y-0.5 pt-1">
+                <div>الرقم الضريبي: <span className="font-mono text-slate-300">{tenant.vatNumber}</span></div>
+                <div>واتساب المؤسسة: <span className="font-mono text-emerald-400 dir-ltr">{tenant.whatsappPhone}</span></div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Navigation Menu */}
@@ -461,6 +430,20 @@ export default function EnterpriseDashboardPage() {
             </button>
 
             <button
+              onClick={() => setActiveSection("settings")}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg transition text-right ${
+                activeSection === "settings"
+                  ? "bg-emerald-600 text-white font-bold"
+                  : "text-emerald-400 hover:text-white hover:bg-slate-900/60"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-4 h-4" />
+                <span>بيانات وإعدادات المؤسسة (الضريبي والواتساب)</span>
+              </div>
+            </button>
+
+            <button
               onClick={() => setActiveSection("compliance")}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg transition text-right ${
                 activeSection === "compliance"
@@ -485,26 +468,26 @@ export default function EnterpriseDashboardPage() {
             >
               <div className="flex items-center gap-2.5">
                 <Users className="w-4 h-4 text-slate-400" />
-                <span>فريق العمل والفواتير الضريبية</span>
+                <span>الفريق، رسائل الواتساب، والسجل</span>
               </div>
             </button>
 
             <Separator className="my-3 bg-slate-800" />
 
             <Link
-              href="/darb-alaman"
+              href={`/${currentSlug}`}
               target="_blank"
               className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/60 transition"
             >
               <div className="flex items-center gap-2.5">
                 <Building2 className="w-4 h-4 text-emerald-400" />
-                <span>موقع المؤسسة للطالبات</span>
+                <span>معاينة موقع المؤسسة للطالبات</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
 
             <Link
-              href="/driver"
+              href={`/driver?tenant=${currentSlug}`}
               className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/60 transition"
             >
               <div className="flex items-center gap-2.5">
@@ -519,13 +502,13 @@ export default function EnterpriseDashboardPage() {
         {/* Bottom Tenant URL Box */}
         <div className="border-t border-slate-800 pt-4 text-[11px] text-slate-400 space-y-1.5">
           <div className="flex justify-between items-center">
-            <span>عنوان موقعك المستقل:</span>
+            <span>رابط المؤسسة المستقل:</span>
             <Badge variant="outline" className="text-[10px] bg-slate-900 text-emerald-400 border-slate-800">
               نشط
             </Badge>
           </div>
           <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-200 dir-ltr text-center">
-            mishwar.sa/darb-alaman
+            mishwar.sa/{currentSlug}
           </div>
         </div>
       </aside>
@@ -536,26 +519,41 @@ export default function EnterpriseDashboardPage() {
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-black tracking-tight">لوحة تحكم مؤسسة درب الأمان</h1>
-              <Badge variant="secondary" className="text-xs font-bold">بدون عمولة مقاعد</Badge>
+              <h1 className="text-2xl font-black tracking-tight">
+                {tenant?.name || "لوحة تحكم المؤسسة"}
+              </h1>
+              <Badge variant="secondary" className="text-xs font-bold">
+                الرقم الضريبي: {tenant?.vatNumber}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              إدارة شاملة للاشتراكات، الباصات، السائقين، المسارات، وتنبيهات هيئة النقل
+              واتساب المؤسسة المعتمد: <span className="font-mono dir-ltr">{tenant?.whatsappPhone}</span> • ترخيص هيئة النقل: {tenant?.licenseNumber}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" asChild className="gap-1.5 font-bold">
+              <Link href="/register-tenant">
+                <Plus className="w-4 h-4" />
+                <span>تسجيل مؤسسة جديدة</span>
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setActiveSection("settings")}
+              className="gap-1.5 font-bold"
+            >
+              <Settings className="w-4 h-4" />
+              <span>تعديل بيانات الشركة</span>
+            </Button>
             <Button size="sm" onClick={() => setIsBusModalOpen(true)} className="gap-1.5 font-bold">
               <Plus className="w-4 h-4" />
               <span>إضافة باص</span>
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setIsDriverModalOpen(true)} className="gap-1.5 font-bold">
+            <Button size="sm" onClick={() => setIsDriverModalOpen(true)} className="gap-1.5 font-bold">
               <Plus className="w-4 h-4" />
               <span>إضافة سائق</span>
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setIsRouteModalOpen(true)} className="gap-1.5">
-              <Plus className="w-4 h-4" />
-              <span>إضافة مسار</span>
             </Button>
           </div>
         </header>
@@ -573,32 +571,13 @@ export default function EnterpriseDashboardPage() {
           </div>
         )}
 
-        {/* TGA Regulatory Alert Banner */}
-        <Alert className="mb-6 border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-200">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-xs font-bold">تنبيهات قبل انتهاء رخص السائقين وبطاقات التشغيل</AlertTitle>
-          <AlertDescription className="text-xs mt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <span>
-              • بطاقة تشغيل الحافلة (أ ب ج 1234) تنتهي بعد 12 يوماً &nbsp;|&nbsp; • رخصة قيادة السائق (محمد السعيد) تنتهي بعد 18 يوماً.
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-amber-600/40 text-xs h-7 px-3"
-              onClick={() => setActiveSection("compliance")}
-            >
-              عرض سجل الرخص والتشغيل
-            </Button>
-          </AlertDescription>
-        </Alert>
-
         {/* Top Executive KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">إجمالي تحصيل الاشتراكات</CardDescription>
               <CardTitle className="text-3xl font-black">
-                83,200 <span className="text-sm font-normal text-muted-foreground">ر.س</span>
+                {totalCollected.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">ر.س</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -626,7 +605,7 @@ export default function EnterpriseDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-[11px] text-amber-600 font-medium">1 رخصة قاربت على الانتهاء</div>
+              <div className="text-[11px] text-amber-600 font-medium">متابعة تلقائية لتواريخ الرخص</div>
             </CardContent>
           </Card>
 
@@ -644,6 +623,143 @@ export default function EnterpriseDashboardPage() {
           </Card>
         </div>
 
+        {/* SECTION: Company Settings (Edit VAT, WhatsApp, CR, License, etc.) */}
+        {activeSection === "settings" && (
+          <Card className="border-primary/20 shadow-md">
+            <CardHeader>
+              <Badge variant="outline" className="w-fit mb-1 text-emerald-700 bg-emerald-50 border-emerald-200">
+                إعدادات الشركة والفوترة الضريبية (ZATCA)
+              </Badge>
+              <CardTitle className="text-lg font-black">
+                البيانات الأساسية لمؤسسة النقل (تُدار بواسطة الشركة)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                أي تعديل هنا ينعكس فوراً على موقع الطالبات (`/{currentSlug}`)، باركود الفاتورة الضريبية ZATCA، ورقم الواتساب المرسل للتنبيهات.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSaveSettings}>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">اسم المؤسسة / الشركة (يظهر في الفاتورة الضريبية)</Label>
+                    <Input
+                      required
+                      value={settingsForm.name}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">الرقم الضريبي (15 رقماً - ZATCA VAT Number)</Label>
+                    <Input
+                      required
+                      maxLength={15}
+                      dir="ltr"
+                      className="font-mono text-right"
+                      value={settingsForm.vatNumber}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, vatNumber: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">رقم الواتساب الرسمي للمؤسسة</Label>
+                    <Input
+                      required
+                      dir="ltr"
+                      className="font-mono text-right"
+                      value={settingsForm.whatsappPhone}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, whatsappPhone: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">رقم جوال خدمة العملاء</Label>
+                    <Input
+                      required
+                      dir="ltr"
+                      className="font-mono text-right"
+                      value={settingsForm.supportPhone}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, supportPhone: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">رقم السجل التجاري (CR)</Label>
+                    <Input
+                      required
+                      dir="ltr"
+                      className="font-mono text-right"
+                      value={settingsForm.crNumber}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, crNumber: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">رقم ترخيص هيئة النقل (TGA)</Label>
+                    <Input
+                      required
+                      value={settingsForm.licenseNumber}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, licenseNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">رقم الآيبان البنكي للتحصيل (IBAN)</Label>
+                    <Input
+                      dir="ltr"
+                      className="font-mono text-right"
+                      value={settingsForm.iban}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, iban: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">سعر الاشتراك الشهري للطالبة (ر.س)</Label>
+                    <Input
+                      type="number"
+                      required
+                      value={settingsForm.monthlyFee}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, monthlyFee: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold">الأحياء المخدومة (افصل بينها بفاصلة)</Label>
+                    <Input
+                      required
+                      value={settingsForm.districtsText}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, districtsText: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">اللون الرسمي لموقع المؤسسة</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={settingsForm.primaryColor}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, primaryColor: e.target.value })}
+                        className="w-10 h-9 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={settingsForm.primaryColor}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, primaryColor: e.target.value })}
+                        className="font-mono text-xs dir-ltr"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-2">
+                <Button type="submit" className="gap-2 font-bold">
+                  <Save className="w-4 h-4" />
+                  <span>حفظ واعتماد بيانات المؤسسة وتحديث باركود ZATCA</span>
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        )}
+
         {/* SECTION 1: Subscriptions & Collection */}
         {activeSection === "subscriptions" && (
           <Card>
@@ -651,10 +767,10 @@ export default function EnterpriseDashboardPage() {
               <div>
                 <CardTitle className="text-base font-bold">طلبات واشتراكات الطالبات وتحصيل الدفعات</CardTitle>
                 <CardDescription className="text-xs">
-                  متابعة حالة الدفع، إرسال تذكير واتساب، والإيقاف التلقائي لمن لم تدفع
+                  أي طالبة تدفع من موقع المؤسسة (`/{currentSlug}`) تظهر هنا فوراً مع فاتورتها الضريبية
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs">تحديث فوري مع شاشة السائق</Badge>
+              <Badge variant="outline" className="text-xs">تزامن لحظي مع شاشة السائق</Badge>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -662,76 +778,102 @@ export default function EnterpriseDashboardPage() {
                   <TableRow>
                     <TableHead className="text-right text-xs font-bold">الطالبة وولي الأمر</TableHead>
                     <TableHead className="text-right text-xs font-bold">الحي والجامعة</TableHead>
-                    <TableHead className="text-right text-xs font-bold">الباص</TableHead>
-                    <TableHead className="text-right text-xs font-bold">الاشتراك</TableHead>
-                    <TableHead className="text-right text-xs font-bold">الحالة</TableHead>
+                    <TableHead className="text-right text-xs font-bold">حالة الصعود اليوم</TableHead>
+                    <TableHead className="text-right text-xs font-bold">الفاتورة (ZATCA)</TableHead>
+                    <TableHead className="text-right text-xs font-bold">حالة السداد</TableHead>
                     <TableHead className="text-center text-xs font-bold">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>
-                        <div className="font-bold text-xs">{student.name}</div>
-                        <div className="text-[11px] text-muted-foreground font-mono dir-ltr text-right">
-                          ولي الأمر: {student.guardianPhone}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div>{student.district}</div>
-                        <div className="text-[11px] text-muted-foreground">{student.university}</div>
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">{student.bus}</TableCell>
-                      <TableCell className="text-xs font-bold">{student.amount} ر.س</TableCell>
-                      <TableCell>
-                        {student.status === "paid" && (
-                          <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[11px] gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            <span>مدفوع</span>
-                          </Badge>
-                        )}
-                        {student.status === "overdue" && (
-                          <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-300 text-[11px] gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>متأخر</span>
-                          </Badge>
-                        )}
-                        {student.status === "suspended" && (
-                          <Badge variant="destructive" className="text-[11px] gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span>موقوف تلقائياً</span>
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {student.status !== "paid" && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="h-7 text-[11px] gap-1"
-                              onClick={() =>
-                                showToast(
-                                  `تم إرسال رسالة تذكير ورابط دفع مباشر لولي أمر الطالبة (${student.name}) على الرقم ${student.guardianPhone}`
-                                )
-                              }
-                            >
-                              <Send className="w-3 h-3" />
-                              <span>تذكير دفع</span>
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[11px]"
-                            onClick={() => toggleStudentSuspension(student.id)}
-                          >
-                            {student.status === "suspended" ? "إعادة تفعيل" : "إيقاف المقعد"}
-                          </Button>
-                        </div>
+                  {students.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">
+                        لا توجد اشتراكات مسجلة في هذه المؤسسة بعد. افتح موقع المؤسسة (`/{currentSlug}`) وسجّل أول طالبة!
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    students.map((student) => (
+                      <TableRow key={student.id}>
+                        <TableCell>
+                          <div className="font-bold text-xs">{student.name}</div>
+                          <div className="text-[11px] text-muted-foreground font-mono dir-ltr text-right">
+                            ولي الأمر: {student.guardianPhone}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div>{student.district}</div>
+                          <div className="text-[11px] text-muted-foreground">{student.university}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {student.boardingStatus === "boarded" && (
+                            <Badge className="bg-emerald-600 text-white text-[10px]">
+                              ✓ ركبت ({student.lastBoardedAt || "صباحاً"})
+                            </Badge>
+                          )}
+                          {student.boardingStatus === "missed" && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              ✕ ما ركبت
+                            </Badge>
+                          )}
+                          {student.boardingStatus === "none" && (
+                            <span className="text-[11px] text-muted-foreground">بانتظار الجولة</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <button
+                            onClick={() => setSelectedInvoiceStudent(student)}
+                            className="font-mono text-xs text-primary underline flex items-center gap-1"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>{student.invoiceNo}</span>
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          {student.status === "paid" && (
+                            <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[11px] gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>مدفوع ({student.amount} ر.س)</span>
+                            </Badge>
+                          )}
+                          {student.status === "overdue" && (
+                            <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-300 text-[11px] gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>متأخر</span>
+                            </Badge>
+                          )}
+                          {student.status === "suspended" && (
+                            <Badge variant="destructive" className="text-[11px] gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>موقوف تلقائياً</span>
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {student.status !== "paid" && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-7 text-[11px] gap-1"
+                                onClick={() => sendWhatsAppPaymentReminder(student)}
+                              >
+                                <Send className="w-3 h-3" />
+                                <span>تذكير دفع</span>
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => toggleStudentSuspension(student.id)}
+                            >
+                              {student.status === "suspended" ? "إعادة تفعيل" : "إيقاف المقعد"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -861,7 +1003,7 @@ export default function EnterpriseDashboardPage() {
               <div>
                 <CardTitle className="text-base font-bold">المسارات والأحياء والأسعار</CardTitle>
                 <CardDescription className="text-xs">
-                  المسارات المعروضة للطالبات في موقع المؤسسة (`mishwar.sa/darb-alaman`)
+                  المسارات المعروضة للطالبات في موقع المؤسسة (`mishwar.sa/{currentSlug}`)
                 </CardDescription>
               </div>
               <Button size="sm" onClick={() => setIsRouteModalOpen(true)} className="gap-1.5 font-bold">
@@ -927,72 +1069,141 @@ export default function EnterpriseDashboardPage() {
                   إرسال تنبيه تجديد
                 </Button>
               </div>
-
-              <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <Badge className="bg-amber-600 text-white text-[10px] mb-1">تنتهي بعد 18 يوماً</Badge>
-                  <div className="font-bold text-sm text-slate-900">رخصة قيادة السائق — محمد السعيد</div>
-                  <div className="text-xs text-slate-600 mt-0.5">
-                    هوية رقم: 1089223344 • تاريخ الانتهاء: 2026-12-04 • جوال: 0501112233
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => showToast("تم إرسال رسالة تنبيه للسائق محمد السعيد لتجديد الرخصة.")}
-                >
-                  تنبيه السائق بالواتساب
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* SECTION 6: Staff & Tax Invoices */}
+        {/* SECTION 6: Staff, ZATCA Invoices & Immutable Audit Log */}
         {activeSection === "staff" && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base font-bold">فريق العمل والصلاحيات (RBAC)</CardTitle>
+                  <CardDescription className="text-xs">توزيع صلاحيات الإدارة والمحاسبة والحركة (باقة Pro)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {staff.map((member) => (
+                    <div key={member.id} className="p-3 rounded-xl border flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold">{member.name}</div>
+                        <div className="text-muted-foreground">{member.role}</div>
+                      </div>
+                      <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
+                        {member.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base font-bold">سجل رسائل الواتساب الصادرة ({notifications.length})</CardTitle>
+                  <CardDescription className="text-xs">
+                    صادرة من واتساب المؤسسة: {tenant?.whatsappPhone}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2.5 max-h-64 overflow-y-auto text-xs">
+                  {notifications.length === 0 ? (
+                    <p className="text-muted-foreground text-xs py-4 text-center">
+                      لا توجد رسائل صادرة في هذه الجلسة بعد.
+                    </p>
+                  ) : (
+                    notifications.map((n) => (
+                      <div key={n.id} className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span className="font-mono dir-ltr">{n.recipientPhone}</span>
+                          <span>{n.sentAt}</span>
+                        </div>
+                        <div className="font-medium text-xs">{n.message}</div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-bold">فريق العمل والصلاحيات</CardTitle>
-                <CardDescription className="text-xs">توزيع صلاحيات الإدارة والمحاسبة والحركة (باقة Pro)</CardDescription>
+                <CardTitle className="text-base font-bold">سجل التدقيق الأمني للعمليات (Immutable Audit Trail)</CardTitle>
+                <CardDescription className="text-xs">
+                  يوثق كل عملية دفع، تعديل إعدادات الشركة، أو تأشير سائق
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {staff.map((member) => (
-                  <div key={member.id} className="p-3 rounded-xl border flex items-center justify-between text-xs">
+              <CardContent className="space-y-2 text-xs">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="p-3 rounded-lg border flex items-center justify-between">
                     <div>
-                      <div className="font-bold">{member.name}</div>
-                      <div className="text-muted-foreground">{member.role}</div>
+                      <span className="font-bold">{log.actor}: </span>
+                      <span>{log.action}</span>
                     </div>
-                    <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
-                      {member.status}
-                    </Badge>
+                    <span className="text-[11px] font-mono text-muted-foreground">{log.timestamp}</span>
                   </div>
                 ))}
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-bold">الفواتير الضريبية والتقارير</CardTitle>
-                <CardDescription className="text-xs">فواتير ضريبية مبسطة لاشتراكات الطالبات متوافقة مع الزكاة والدخل</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="p-3.5 rounded-xl border bg-muted/20 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold">تقرير تحصيل شهر نوفمبر 2026</div>
-                    <div className="text-muted-foreground">إجمالي 128 فاتورة مصدرة • 83,200 ر.س</div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => showToast("جاري تصدير ملف التقرير الضريبي بصيغة PDF و Excel...")}
-                  >
-                    تصدير التقرير
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
+
+        {/* MODAL: ZATCA Tax Invoice Viewer */}
+        <Dialog
+          open={!!selectedInvoiceStudent}
+          onOpenChange={(o) => !o && setSelectedInvoiceStudent(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>فاتورة ضريبية مبسطة (ZATCA E-Invoice)</DialogTitle>
+              <DialogDescription className="text-xs">
+                صادرة بالاسم الرسمي والرقم الضريبي الخاص بالمؤسسة
+              </DialogDescription>
+            </DialogHeader>
+            {selectedInvoiceStudent && (
+              <div className="space-y-3 text-xs pt-2">
+                <div className="p-3.5 rounded-xl border bg-muted/30 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">رقم الفاتورة:</span>
+                    <span className="font-mono font-bold">{selectedInvoiceStudent.invoiceNo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">المؤسسة (المورد):</span>
+                    <span className="font-bold">{tenant?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">الرقم الضريبي للمؤسسة:</span>
+                    <span className="font-mono font-bold">{tenant?.vatNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">واتساب خدمة العملاء:</span>
+                    <span className="font-mono dir-ltr">{tenant?.whatsappPhone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">الطالبة:</span>
+                    <span className="font-bold">{selectedInvoiceStudent.name}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-bold text-sm text-emerald-700">
+                    <span>الإجمالي شامل ضريبة القيمة المضافة (15%):</span>
+                    <span>{selectedInvoiceStudent.amount} ر.س</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border flex flex-col sm:flex-row items-center gap-4 bg-card">
+                  <ZatcaQrImage value={selectedInvoiceStudent.zatcaQrBase64} size={136} className="shrink-0" />
+                  <div className="overflow-hidden text-center sm:text-right w-full">
+                    <Badge variant="outline" className="mb-1 text-[10px] text-emerald-700 border-emerald-200 bg-emerald-50">
+                      امسح الرمز بتطبيق ZATCA أو الكاميرا
+                    </Badge>
+                    <div className="font-bold text-[11px]">رمز TLV Base64 المشفر ببيانات المؤسسة:</div>
+                    <div className="font-mono text-[10px] text-muted-foreground break-all dir-ltr mt-1 p-2 rounded border bg-muted/20">
+                      {selectedInvoiceStudent.zatcaQrBase64}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* MODAL 1: Add Bus Dialog */}
         <Dialog open={isBusModalOpen} onOpenChange={setIsBusModalOpen}>
@@ -1036,22 +1247,6 @@ export default function EnterpriseDashboardPage() {
                     onChange={(e) => setNewBus({ ...newBus, capacity: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="busDriver" className="text-xs font-bold">السائق المعين</Label>
-                <select
-                  id="busDriver"
-                  value={newBus.assignedDriver}
-                  onChange={(e) => setNewBus({ ...newBus, assignedDriver: e.target.value })}
-                  className="w-full h-9 px-3 border border-input rounded-md text-xs bg-background"
-                >
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.name}>
-                      {d.name} ({d.phone})
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1128,22 +1323,6 @@ export default function EnterpriseDashboardPage() {
                     className="font-mono"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="drvBus" className="text-xs font-bold">تعيين على باص</Label>
-                <select
-                  id="drvBus"
-                  value={newDriver.busAssigned}
-                  onChange={(e) => setNewDriver({ ...newDriver, busAssigned: e.target.value })}
-                  className="w-full h-9 px-3 border border-input rounded-md text-xs bg-background"
-                >
-                  {buses.map((b) => (
-                    <option key={b.id} value={`حافلة (${b.plate})`}>
-                      {b.plate} — {b.model}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="space-y-1">
@@ -1235,5 +1414,13 @@ export default function EnterpriseDashboardPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function EnterpriseDashboardPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center font-bold text-muted-foreground">جاري تحميل لوحة المؤسسة...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

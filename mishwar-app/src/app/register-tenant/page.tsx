@@ -3,28 +3,91 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bus, ShieldCheck, ArrowLeft, Building2, CheckCircle2 } from "lucide-react";
+import {
+  Bus,
+  CheckCircle2,
+  Building2,
+  ShieldCheck,
+  Phone,
+  FileText,
+  CreditCard,
+  Palette,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 export default function RegisterTenantPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [phone, setPhone] = useState("");
-  const [license, setLicense] = useState("");
-  const [busesCount, setBusesCount] = useState("5");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [crNumber, setCrNumber] = useState("");
+  const [vatNumber, setVatNumber] = useState("310");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("9665");
+  const [supportPhone, setSupportPhone] = useState("05");
+  const [iban, setIban] = useState("SA");
+  const [city, setCity] = useState("الرياض");
+  const [primaryColor, setPrimaryColor] = useState("#0F172A");
+  const [monthlyFee, setMonthlyFee] = useState("650");
+  const [districts, setDistricts] = useState("حي الياسمين، حي النرجس، حي الملقا");
+  const [planTier, setPlanTier] = useState("pro");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 1200);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch("/api/tenant-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "REGISTER_TENANT",
+          payload: {
+            name,
+            slug,
+            crNumber,
+            vatNumber,
+            licenseNumber,
+            whatsappPhone,
+            supportPhone,
+            iban,
+            city,
+            primaryColor,
+            monthlyFee: Number(monthlyFee),
+            districts,
+            planTier,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || "حدث خطأ أثناء التسجيل");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Redirect directly to the newly created company's dashboard!
+      router.push(`/dashboard?tenant=${data.tenant.slug}`);
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم");
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -38,111 +101,278 @@ export default function RegisterTenantPage() {
             </div>
             <span className="font-extrabold text-lg tracking-tight">مشوار</span>
           </Link>
-          <span className="text-xs text-muted-foreground">تسجيل مؤسسة نقل جديدة • تجربة 14 يوماً مجاناً</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              تأسيس موقع ونظام مؤسسة نقل جديدة
+            </span>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard">العودة للوحة الإدارة</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-xl mx-auto px-4 py-12 w-full">
+      <main className="max-w-3xl mx-auto px-4 py-10 w-full">
         <Card className="shadow-xl border-border/80">
           <CardHeader>
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
                 14 يوم تجربة مجانية
               </Badge>
-              <Badge variant="secondary">بدون بطاقة ائتمانية</Badge>
+              <Badge variant="secondary">إصدار فوري لموقع المؤسسة والفوترة الضريبية</Badge>
             </div>
-            <CardTitle className="text-2xl font-black">أنشئ نظام مؤسستك وموقعك الخاص</CardTitle>
+            <CardTitle className="text-2xl font-black">
+              تسجيل مؤسسة نقل جديدة وإعداد بياناتها الأساسية
+            </CardTitle>
             <CardDescription className="text-xs">
-              اختر رابط موقعك المستقل، وفعّل التحصيل الآلي وإدارة الأسطول بدقائق معدودة.
+              جميع البيانات المدخلة هنا (الرقم الضريبي، رقم الواتساب، السجل التجاري، وترخيص هيئة النقل) ستُعتمد تلقائياً في موقع مؤسستك وفي فواتير ZATCA وإشعارات أولياء الأمور.
             </CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="orgName" className="text-xs font-bold">اسم مؤسسة النقل (كما في السجل)</Label>
-                <Input
-                  id="orgName"
-                  required
-                  placeholder="مثال: مؤسسة الفرسان لنقل الطالبات"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (!slug) {
-                      setSlug("al-fursan");
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="slug" className="text-xs font-bold">الرابط الخاص بمؤسستك</Label>
-                <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring">
-                  <span className="px-3 text-xs text-muted-foreground font-mono dir-ltr select-none border-l bg-muted/30 h-9 flex items-center">
-                    mishwar.sa/
-                  </span>
-                  <input
-                    id="slug"
-                    required
-                    dir="ltr"
-                    placeholder="al-fursan"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    className="flex-1 px-3 py-1.5 text-xs font-mono outline-none bg-transparent"
-                  />
+            <CardContent className="space-y-6">
+              {errorMsg && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive text-destructive text-xs font-bold">
+                  {errorMsg}
                 </div>
-                <p className="text-[11px] text-muted-foreground">هذا هو الرابط المباشر الذي ستفتحه الطالبات لحجز مقاعدهن وسداد الاشتراكات.</p>
+              )}
+
+              {/* Section 1: Identity & Slug */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-primary">
+                  <Building2 className="w-4 h-4" />
+                  <span>1. الهوية الرسمية والرابط الخاص بالمؤسسة</span>
+                </div>
+                <Separator />
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="orgName" className="text-xs font-bold">
+                      اسم المؤسسة / الشركة (كما في السجل التجاري) *
+                    </Label>
+                    <Input
+                      id="orgName"
+                      required
+                      placeholder="مثال: شركة الفرسان للنقل الجامعي"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="slug" className="text-xs font-bold">
+                      عنوان الموقع الخاص (Slug) *
+                    </Label>
+                    <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring">
+                      <span className="px-2.5 text-xs text-muted-foreground font-mono dir-ltr select-none border-l bg-muted/30 h-9 flex items-center">
+                        mishwar.sa/
+                      </span>
+                      <input
+                        id="slug"
+                        required
+                        dir="ltr"
+                        placeholder="al-fursan"
+                        value={slug}
+                        onChange={(e) =>
+                          setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                        }
+                        className="flex-1 px-3 py-1.5 text-xs font-mono outline-none bg-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Section 2: Legal, Tax (ZATCA) & TGA Info */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-primary">
+                  <FileText className="w-4 h-4" />
+                  <span>2. البيانات الضريبية والنظامية (للفوترة الإلكترونية ZATCA وهيئة النقل)</span>
+                </div>
+                <Separator />
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="vatNumber" className="text-xs font-bold">
+                      الرقم الضريبي (15 رقماً - ZATCA) *
+                    </Label>
+                    <Input
+                      id="vatNumber"
+                      required
+                      maxLength={15}
+                      dir="ltr"
+                      placeholder="310123456700003"
+                      value={vatNumber}
+                      onChange={(e) => setVatNumber(e.target.value)}
+                      className="font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="crNumber" className="text-xs font-bold">
+                      رقم السجل التجاري (CR) *
+                    </Label>
+                    <Input
+                      id="crNumber"
+                      required
+                      dir="ltr"
+                      placeholder="1010XXXXXX"
+                      value={crNumber}
+                      onChange={(e) => setCrNumber(e.target.value)}
+                      className="font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="license" className="text-xs font-bold">
+                      رقم ترخيص الهيئة العامة للنقل *
+                    </Label>
+                    <Input
+                      id="license"
+                      required
+                      placeholder="ت-50231-نقل"
+                      value={licenseNumber}
+                      onChange={(e) => setLicenseNumber(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: WhatsApp & Contact & IBAN */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-primary">
+                  <Phone className="w-4 h-4" />
+                  <span>3. أرقام الواتساب والتواصل والحساب البنكي (IBAN)</span>
+                </div>
+                <Separator />
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="whatsapp" className="text-xs font-bold">
+                      رقم الواتساب الرسمي للمؤسسة *
+                    </Label>
+                    <Input
+                      id="whatsapp"
+                      required
+                      dir="ltr"
+                      placeholder="96650XXXXXXX"
+                      value={whatsappPhone}
+                      onChange={(e) => setWhatsappPhone(e.target.value)}
+                      className="font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="support" className="text-xs font-bold">
+                      جوال خدمة العملاء والاتصال *
+                    </Label>
+                    <Input
+                      id="support"
+                      required
+                      dir="ltr"
+                      placeholder="05XXXXXXXX"
+                      value={supportPhone}
+                      onChange={(e) => setSupportPhone(e.target.value)}
+                      className="font-mono text-right"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="iban" className="text-xs font-bold">
+                      رقم الآيبان البنكي للتحصيل (IBAN)
+                    </Label>
+                    <Input
+                      id="iban"
+                      dir="ltr"
+                      placeholder="SA0000000000000000000000"
+                      value={iban}
+                      onChange={(e) => setIban(e.target.value)}
+                      className="font-mono text-right"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Operations, Pricing, Districts & Brand Color */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-black text-primary">
+                  <Palette className="w-4 h-4" />
+                  <span>4. إعدادات التسعير والأحياء المخدومة ولون الموقع</span>
+                </div>
+                <Separator />
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="monthlyFee" className="text-xs font-bold">
+                      سعر الاشتراك الشهري للطالبة (ر.س) *
+                    </Label>
+                    <Input
+                      id="monthlyFee"
+                      type="number"
+                      required
+                      value={monthlyFee}
+                      onChange={(e) => setMonthlyFee(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city" className="text-xs font-bold">
+                      المدينة
+                    </Label>
+                    <Input
+                      id="city"
+                      required
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="color" className="text-xs font-bold">
+                      لون هوية الموقع
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="color"
+                        type="color"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        className="w-10 h-9 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        className="font-mono text-xs dir-ltr"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="phone" className="text-xs font-bold">رقم جوال المسؤول (لإشعارات الإدارة)</Label>
+                  <Label htmlFor="districts" className="text-xs font-bold">
+                    الأحياء المخدومة (افصل بينها بفاصلة) *
+                  </Label>
                   <Input
-                    id="phone"
-                    type="tel"
+                    id="districts"
                     required
-                    dir="ltr"
-                    placeholder="05XXXXXXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="text-right font-mono"
+                    placeholder="حي الياسمين، حي النرجس، حي الملقا، حي الصحافة"
+                    value={districts}
+                    onChange={(e) => setDistricts(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="license" className="text-xs font-bold">رقم ترخيص هيئة النقل</Label>
-                  <Input
-                    id="license"
-                    placeholder="مثال: 10452-نقل"
-                    value={license}
-                    onChange={(e) => setLicense(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="buses" className="text-xs font-bold">عدد الحافلات الحالية في أسطولك</Label>
-                <select
-                  id="buses"
-                  value={busesCount}
-                  onChange={(e) => setBusesCount(e.target.value)}
-                  className="w-full h-9 px-3 border border-input rounded-md text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="3">1 - 3 حافلات (باقة Basic)</option>
-                  <option value="5">4 - 10 حافلات (باقة Pro)</option>
-                  <option value="15">11 - 25 حافلة (باقة Pro المتقدمة)</option>
-                  <option value="50">أكثر من 25 حافلة (Enterprise)</option>
-                </select>
               </div>
             </CardContent>
 
-            <CardFooter className="pt-2 flex flex-col gap-3">
+            <CardFooter className="pt-4 flex flex-col gap-3">
               <Button type="submit" size="lg" className="w-full font-bold" disabled={isSubmitting}>
-                {isSubmitting ? "جاري تهيئة موقع المؤسسة ولوحة الإدارة..." : "بدء التجربة المجانية الفورية (14 يوماً)"}
+                {isSubmitting
+                  ? "جاري إنشاء موقع المؤسسة وتجهيز الفوترة الضريبية..."
+                  : "اعتماد وإنشاء موقع المؤسسة والانتقال للوحة التحكم"}
               </Button>
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>إلغاء في أي وقت • دعم فني سعودي متواصل • بدون أي اقتطاع عمولة</span>
+                <span>يمكنك تعديل جميع هذه البيانات لاحقاً من داخل قسم «بيانات وإعدادات المؤسسة» في الداشبورد</span>
               </div>
             </CardFooter>
           </form>
