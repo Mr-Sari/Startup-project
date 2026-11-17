@@ -381,7 +381,7 @@ export default function RegisterTenantPage() {
 
       {/* Footer */}
       <footer className="py-6 text-center text-xs text-muted-foreground border-t bg-card">
-        نظام مشوار لإدارة نقل الطالبات • المملكة العربية السعودية © 2026
+        منظومة صَرْحِي (Sarhy) لإدارة نقل الطالبات • المملكة العربية السعودية © 2026
       </footer>
     </div>
   );

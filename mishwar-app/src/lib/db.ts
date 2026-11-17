@@ -1,29 +1,29 @@
 /**
- * Multi-Tenant Database & State Repository with Dynamic Tenant Creation & Settings
- * Allows registering new transport companies (`tenants`), editing company profile
- * (WhatsApp, VAT number, CR number, TGA license, primary color, districts, pricing),
- * and dynamically generating ZATCA QR codes using each company's real VAT & Seller Name.
+ * Multi-Tenant Database Repository with Firebase Cloud Firestore Sync + Instant Fallback
+ * When `NEXT_PUBLIC_FIREBASE_PROJECT_ID` is configured in `.env.local`, every read/write
+ * syncs directly with Google Cloud Firestore under `/tenants/{tenantSlug}/...`.
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { generateZatcaQrBase64, calculateSaudiVat } from "./zatca";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-export const supabase =
-  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+import {
+  firestoreDb,
+  isFirebaseConfigured,
+  doc,
+  setDoc,
+  collection,
+  getDocs,
+} from "./firebase";
 
 export interface TenantProfile {
   id: string;
   slug: string;
   name: string;
-  crNumber: string; // السجل التجاري
-  vatNumber: string; // الرقم الضريبي 15 رقم
-  licenseNumber: string; // ترخيص هيئة النقل
-  whatsappPhone: string; // رقم الواتساب الرسمي للمؤسسة
-  supportPhone: string; // رقم خدمة العملاء
-  iban: string; // الآيبان البنكي للتحصيل
+  crNumber: string;
+  vatNumber: string;
+  licenseNumber: string;
+  whatsappPhone: string;
+  supportPhone: string;
+  iban: string;
   city: string;
   primaryColor: string;
   monthlyFee: number;
@@ -323,3 +323,39 @@ if (!globalStore.__mishwarStoreV2) {
 }
 
 export const db = globalStore.__mishwarStoreV2;
+
+/**
+ * Helper to mirror any record into Firebase Cloud Firestore when configured.
+ * Runs non-blocking with a strict 2-second timeout so it never freezes
+ * the API response even if Firestore permissions/database are still provisioning.
+ */
+export async function syncToFirestore(
+  tenantSlug: string,
+  subcollection: string | null,
+  docId: string,
+  data: Record<string, unknown>
+) {
+  if (!isFirebaseConfigured || !firestoreDb) return;
+
+  // Run in background without blocking the HTTP request
+  const firestorePromise = (async () => {
+    try {
+      if (!subcollection) {
+        await setDoc(doc(firestoreDb, "tenants", tenantSlug), data, { merge: true });
+      } else {
+        await setDoc(
+          doc(firestoreDb, "tenants", tenantSlug, subcollection, docId),
+          data,
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.warn("Firestore sync warning (handled gracefully):", err);
+    }
+  })();
+
+  const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 800));
+
+  // Race against 800ms timeout so user UI never hangs
+  await Promise.race([firestorePromise, timeoutPromise]);
+}

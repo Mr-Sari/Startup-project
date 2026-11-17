@@ -185,99 +185,137 @@ function DashboardContent() {
     loadTenantData();
   }, [currentSlug]);
 
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/tenant-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "UPDATE_TENANT_SETTINGS",
-        tenantSlug: currentSlug,
-        payload: settingsForm,
-      }),
-    });
-    if (res.ok) {
-      await loadTenantData();
-      showToast(
-        "تم حفظ البيانات الأساسية للمؤسسة وتحديث الرقم الضريبي في فواتير ZATCA ورقم الواتساب بنجاح."
-      );
+    setIsSubmittingModal(true);
+    try {
+      const res = await fetch("/api/tenant-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "UPDATE_TENANT_SETTINGS",
+          tenantSlug: currentSlug,
+          payload: settingsForm,
+        }),
+      });
+      if (res.ok) {
+        await loadTenantData();
+        showToast(
+          "تم حفظ البيانات الأساسية للمؤسسة وتحديث الرقم الضريبي في فواتير ZATCA ورقم الواتساب بنجاح."
+        );
+      } else {
+        showToast("حدث خطأ أثناء حفظ الإعدادات، يرجى المحاولة ثانية.");
+      }
+    } catch {
+      showToast("تعذر الاتصال بالخادم.");
+    } finally {
+      setIsSubmittingModal(false);
     }
   };
 
   const handleAddBus = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/tenant-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "ADD_BUS",
-        tenantSlug: currentSlug,
-        payload: newBus,
-      }),
-    });
-    if (res.ok) {
-      await loadTenantData();
-      setIsBusModalOpen(false);
-      setNewBus({
-        plate: "",
-        model: "",
-        capacity: "30",
-        assignedDriver: "محمد السعيد",
-        route: "مسار الياسمين والنرجس ➔ جامعة نورة",
-        cardNo: "",
-        cardExpiry: "",
+    setIsSubmittingModal(true);
+    try {
+      const res = await fetch("/api/tenant-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ADD_BUS",
+          tenantSlug: currentSlug,
+          payload: newBus,
+        }),
       });
-      showToast("تمت إضافة الحافلة الجديدة وربط بطاقة التشغيل بنجاح.");
+      if (res.ok) {
+        await loadTenantData();
+        setIsBusModalOpen(false);
+        setNewBus({
+          plate: "",
+          model: "",
+          capacity: "30",
+          assignedDriver: "محمد السعيد",
+          route: "مسار الياسمين والنرجس ➔ جامعة نورة",
+          cardNo: "",
+          cardExpiry: "",
+        });
+        showToast("تمت إضافة الحافلة الجديدة وربط بطاقة التشغيل بنجاح.");
+      } else {
+        showToast("حدث خطأ أثناء إضافة الباص، يرجى المحاولة ثانية.");
+      }
+    } catch {
+      showToast("تعذر الاتصال بالخادم.");
+    } finally {
+      setIsSubmittingModal(false);
     }
   };
 
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/tenant-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "ADD_DRIVER",
-        tenantSlug: currentSlug,
-        payload: newDriver,
-      }),
-    });
-    if (res.ok) {
-      await loadTenantData();
-      setIsDriverModalOpen(false);
-      setNewDriver({
-        name: "",
-        phone: "",
-        nationalId: "",
-        busAssigned: "حافلة 01 (أ ب ج 1234)",
-        licenseExpiry: "",
+    setIsSubmittingModal(true);
+    try {
+      const res = await fetch("/api/tenant-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ADD_DRIVER",
+          tenantSlug: currentSlug,
+          payload: newDriver,
+        }),
       });
-      showToast("تم تسجيل السائق الجديد وإرسال رابط شاشة السائق إلى جواله.");
+      if (res.ok) {
+        await loadTenantData();
+        setIsDriverModalOpen(false);
+        setNewDriver({
+          name: "",
+          phone: "",
+          nationalId: "",
+          busAssigned: "حافلة 01 (أ ب ج 1234)",
+          licenseExpiry: "",
+        });
+        showToast("تم تسجيل السائق الجديد وإرسال رابط شاشة السائق إلى جواله.");
+      } else {
+        showToast("حدث خطأ أثناء إضافة السائق، يرجى المحاولة ثانية.");
+      }
+    } catch {
+      showToast("تعذر الاتصال بالخادم.");
+    } finally {
+      setIsSubmittingModal(false);
     }
   };
 
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/tenant-data", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "ADD_ROUTE",
-        tenantSlug: currentSlug,
-        payload: newRoute,
-      }),
-    });
-    if (res.ok) {
-      await loadTenantData();
-      setIsRouteModalOpen(false);
-      setNewRoute({
-        name: "",
-        districts: "",
-        university: "جامعة الأميرة نورة بنت عبدالرحمن",
-        monthlyPrice: "650",
-        bus: "حافلة 01 (30 مقعد)",
+    setIsSubmittingModal(true);
+    try {
+      const res = await fetch("/api/tenant-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "ADD_ROUTE",
+          tenantSlug: currentSlug,
+          payload: newRoute,
+        }),
       });
-      showToast("تم نشر المسار الجديد في موقع المؤسسة للطالبات.");
+      if (res.ok) {
+        await loadTenantData();
+        setIsRouteModalOpen(false);
+        setNewRoute({
+          name: "",
+          districts: "",
+          university: "جامعة الأميرة نورة بنت عبدالرحمن",
+          monthlyPrice: "650",
+          bus: "حافلة 01 (30 مقعد)",
+        });
+        showToast("تم نشر المسار الجديد في موقع المؤسسة للطالبات.");
+      } else {
+        showToast("حدث خطأ أثناء إضافة المسار، يرجى المحاولة ثانية.");
+      }
+    } catch {
+      showToast("تعذر الاتصال بالخادم.");
+    } finally {
+      setIsSubmittingModal(false);
     }
   };
 
@@ -322,9 +360,9 @@ function DashboardContent() {
     .reduce((acc, cur) => acc + cur.amount, 0);
 
   return (
-    <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row text-foreground">
-      {/* Formal Sidebar */}
-      <aside className="w-full md:w-72 bg-slate-950 text-slate-300 p-5 flex flex-col justify-between border-l border-slate-800 shrink-0">
+    <div className="min-h-screen bg-grid-pattern flex flex-col md:flex-row text-foreground">
+      {/* Pro Max Royal Obsidian Sidebar */}
+      <aside className="w-full md:w-76 royal-gradient text-slate-300 p-5 flex flex-col justify-between border-l border-emerald-950/60 shrink-0 shadow-2xl">
         <div>
           {/* Tenant Switcher & Add New Company Button */}
           <div className="pb-4 border-b border-slate-800 mb-4 space-y-2.5">
@@ -518,12 +556,15 @@ function DashboardContent() {
         {/* Top Action Bar */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl font-black tracking-tight">
                 {tenant?.name || "لوحة تحكم المؤسسة"}
               </h1>
               <Badge variant="secondary" className="text-xs font-bold">
                 الرقم الضريبي: {tenant?.vatNumber}
+              </Badge>
+              <Badge className="bg-emerald-600 text-white text-[10px]">
+                🔥 متصل بـ Firebase (mishwar-sa)
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -573,52 +614,52 @@ function DashboardContent() {
 
         {/* Top Executive KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
+          <Card className="pro-card border-r-4 border-r-emerald-600">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs">إجمالي تحصيل الاشتراكات</CardDescription>
-              <CardTitle className="text-3xl font-black">
-                {totalCollected.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">ر.س</span>
+              <CardDescription className="text-xs font-semibold text-muted-foreground">إجمالي تحصيل الاشتراكات</CardDescription>
+              <CardTitle className="text-3xl font-black text-emerald-950 font-mono">
+                {totalCollected.toLocaleString()} <span className="text-sm font-sans font-normal text-muted-foreground">ر.س</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-[11px] text-emerald-600 font-semibold">0% عمولة • كامل المبلغ لحساب المؤسسة</div>
+              <div className="text-[11px] text-emerald-700 font-bold">0% عمولة • كامل المبلغ لحساب المؤسسة</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="pro-card border-r-4 border-r-slate-800">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs">الباصات العاملة بالأسطول</CardDescription>
-              <CardTitle className="text-3xl font-black">
-                {buses.length} <span className="text-sm font-normal text-muted-foreground">باصات</span>
+              <CardDescription className="text-xs font-semibold text-muted-foreground">الباصات العاملة بالأسطول</CardDescription>
+              <CardTitle className="text-3xl font-black font-mono">
+                {buses.length} <span className="text-sm font-sans font-normal text-muted-foreground">باصات</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-[11px] text-muted-foreground">مرتبطة بـ {routes.length} مسارات جامعية</div>
+              <div className="text-[11px] text-muted-foreground font-medium">مرتبطة بـ {routes.length} مسارات جامعية</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="pro-card border-r-4 border-r-amber-500">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs">السائقون المسجلون</CardDescription>
-              <CardTitle className="text-3xl font-black">
-                {drivers.length} <span className="text-sm font-normal text-muted-foreground">سائقين</span>
+              <CardDescription className="text-xs font-semibold text-muted-foreground">السائقون المسجلون</CardDescription>
+              <CardTitle className="text-3xl font-black font-mono">
+                {drivers.length} <span className="text-sm font-sans font-normal text-muted-foreground">سائقين</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-[11px] text-amber-600 font-medium">متابعة تلقائية لتواريخ الرخص</div>
+              <div className="text-[11px] text-amber-700 font-bold">متابعة تلقائية لتواريخ الرخص</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="pro-card border-r-4 border-r-red-500">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs">إيقاف تلقائي لعدم السداد</CardDescription>
-              <CardTitle className="text-3xl font-black text-destructive">
+              <CardDescription className="text-xs font-semibold text-muted-foreground">إيقاف تلقائي لعدم السداد</CardDescription>
+              <CardTitle className="text-3xl font-black text-destructive font-mono">
                 {students.filter((s) => s.status !== "paid").length}{" "}
-                <span className="text-sm font-normal text-muted-foreground">طالبات</span>
+                <span className="text-sm font-sans font-normal text-muted-foreground">طالبات</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-[11px] text-destructive font-semibold">محجوبات آلياً من شاشة السائق</div>
+              <div className="text-[11px] text-destructive font-bold">محجوبات آلياً من شاشة السائق</div>
             </CardContent>
           </Card>
         </div>
@@ -1272,7 +1313,9 @@ function DashboardContent() {
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full font-bold">حفظ وإضافة الباص</Button>
+                <Button type="submit" disabled={isSubmittingModal} className="w-full font-bold">
+                  {isSubmittingModal ? "جاري الإضافة..." : "حفظ وإضافة الباص"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -1337,7 +1380,9 @@ function DashboardContent() {
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full font-bold">حفظ واعتماد السائق</Button>
+                <Button type="submit" disabled={isSubmittingModal} className="w-full font-bold">
+                  {isSubmittingModal ? "جاري الاعتماد..." : "حفظ واعتماد السائق"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -1398,19 +1443,24 @@ function DashboardContent() {
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full font-bold">إضافة المسار للموقع</Button>
+                <Button type="submit" disabled={isSubmittingModal} className="w-full font-bold">
+                  {isSubmittingModal ? "جاري النشر..." : "إضافة المسار للموقع"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </main>
 
-      {/* Generative UI Copilot Widget */}
+      {/* Real Agentic AI Copilot Widget */}
       <MishwarAICopilot
-        onTriggerAction={(action) => {
-          if (action === "bulk-reminder") {
-            showToast("تم إرسال رسائل التذكير بالواتساب لجميع المتأخرات عن السداد.");
-          }
+        tenantSlug={currentSlug}
+        onActionCompleted={async (summary) => {
+          await loadTenantData();
+          showToast(summary);
+        }}
+        onNavigateSection={(sec) => {
+          setActiveSection(sec as DashboardSection);
         }}
       />
     </div>

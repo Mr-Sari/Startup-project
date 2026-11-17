@@ -1,0 +1,570 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// This security rules file assumes the following data structures for the
+// "Mishwar" multi-tenant student transport SaaS platform in Saudi Arabia:
+//
+// Collection: /tenants/{tenantSlug}
+// Document ID: tenantSlug (lowercase alphanumeric with hyphens)
+// Fields:
+//   - id: string (optional, max 64 chars) - Internal identifier
+//   - slug: string (required, immutable, matches tenantSlug, max 64 chars) - Unique URL slug
+//   - name: string (required, 2..150 chars) - Official company name
+//   - crNumber: string (optional, max 20 chars) - Saudi Commercial Registration (CR) number
+//   - vatNumber: string (required, 15 chars) - 15-digit ZATCA VAT registration number
+//   - licenseNumber: string (optional, max 50 chars) - Transport General Authority (TGA) license
+//   - whatsappPhone: string (required, 8..20 chars) - Official business WhatsApp number
+//   - supportPhone: string (optional, max 20 chars) - Customer support phone number
+//   - iban: string (optional, max 34 chars) - Saudi IBAN (SA...) for settlement
+//   - city: string (optional, max 50 chars) - Primary operating city
+//   - primaryColor: string (optional, max 20 chars) - Hex color code for branding
+//   - monthlyFee: number (optional, > 0, <= 50000) - Default monthly subscription fee in SAR
+//   - districts: list of strings (optional, max 50 items) - Covered residential districts
+//   - planTier: string (optional, enum: ['basic', 'pro', 'enterprise']) - SaaS subscription tier
+//   - ownerUid: string (required, immutable, matches creator UID on create) - Tenant owner UID
+//   - createdAt: string or timestamp (optional, immutable) - Creation timestamp
+//
+// Collection: /tenants/{tenantSlug}/staff/{staffUid}
+// Document ID: staffUid (Firebase Auth UID of staff member)
+// Fields:
+//   - uid: string (required, immutable, matches staffUid) - Staff user UID
+//   - tenantSlug: string (required, immutable, matches tenantSlug) - Scoped tenant slug
+//   - name: string (required, 1..100 chars) - Staff member name
+//   - role: string (required, enum: ['manager', 'dispatcher', 'accountant', 'driver']) - Staff role
+//   - phone: string (optional, max 20 chars) - Contact phone
+//   - createdAt: string or timestamp (optional, immutable)
+//
+// Collection: /tenants/{tenantSlug}/students/{studentId}
+// Document ID: studentId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug) - Scoped tenant slug
+//   - name: string (required, 2..120 chars) - Student full name
+//   - phone: string (optional, max 20 chars) - Student phone number
+//   - guardianPhone: string (optional, max 20 chars) - Guardian phone for WhatsApp boarding alerts
+//   - district: string (optional, max 80 chars) - Residential district
+//   - university: string (optional, max 150 chars) - Destination university/campus
+//   - bus: string (optional, max 80 chars) - Assigned bus identifier
+//   - status: string (optional, enum: ['paid', 'overdue', 'suspended']) - Subscription status
+//   - boardingStatus: string (optional, enum: ['none', 'boarded', 'missed']) - Daily trip status
+//   - amount: number (required, >= 0, <= 100000) - Subscription / invoice amount in SAR
+//   - invoiceNo: string (optional, max 50 chars) - ZATCA invoice reference
+//   - zatcaQrBase64: string (optional, max 2048 chars) - TLV Base64 ZATCA QR payload
+//   - lastBoardedAt: string (optional, max 50 chars) - Last boarding time string
+//   - createdAt: string or timestamp (optional, immutable)
+//
+// Collection: /tenants/{tenantSlug}/buses/{busId}
+// Document ID: busId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug)
+//   - plate: string (required, 1..30 chars) - Saudi license plate
+//   - model: string (required, 1..100 chars) - Vehicle model and year
+//   - capacity: number (required, > 0, <= 100) - Seat capacity
+//   - assignedDriver: string (optional, max 100 chars) - Assigned driver name/ID
+//   - route: string (optional, max 150 chars) - Assigned route description
+//   - operationCardNo: string (optional, max 50 chars) - TGA operation card number
+//   - operationCardExpiry: string (optional, max 30 chars) - Expiry date string
+//   - daysLeft: number (optional, >= -3650, <= 3650) - Days remaining until expiry
+//   - status: string (optional, enum: ['active', 'warning', 'expired'])
+//
+// Collection: /tenants/{tenantSlug}/drivers/{driverId}
+// Document ID: driverId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug)
+//   - uid: string (optional, max 64 chars) - Optional linked Firebase Auth UID for driver PWA
+//   - name: string (required, 2..100 chars) - Driver full name
+//   - phone: string (required, 8..20 chars) - Driver phone number
+//   - nationalId: string (optional, max 20 chars) - Saudi National ID / Iqama
+//   - licenseType: string (optional, max 60 chars) - Heavy transport / bus license class
+//   - licenseExpiry: string (optional, max 30 chars) - Expiry date
+//   - driverCardNo: string (optional, max 50 chars) - TGA driver card number
+//   - daysLeft: number (optional, >= -3650, <= 3650)
+//   - busAssigned: string (optional, max 100 chars)
+//   - status: string (optional, enum: ['active', 'warning', 'expired'])
+//
+// Collection: /tenants/{tenantSlug}/routes/{routeId}
+// Document ID: routeId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug)
+//   - name: string (required, 2..120 chars) - Route title
+//   - districts: string (required, 1..500 chars) - Covered districts description
+//   - university: string (required, 2..150 chars) - Target university
+//   - monthlyPrice: number (required, > 0, <= 50000) - Monthly route fee in SAR
+//   - bus: string (optional, max 100 chars) - Assigned bus label
+//   - enrolled: number (optional, >= 0, <= 500) - Current enrolled student count
+//
+// Collection: /tenants/{tenantSlug}/notifications/{notId}
+// Document ID: notId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug)
+//   - recipientPhone: string (required, 8..20 chars) - Recipient phone number
+//   - channel: string (required, enum: ['whatsapp', 'sms']) - Notification channel
+//   - message: string (required, 1..1000 chars) - Notification message body
+//   - sentAt: string (required, 1..50 chars) - Timestamp string
+//
+// Collection: /tenants/{tenantSlug}/auditLogs/{logId}
+// Document ID: logId
+// Fields:
+//   - id: string (optional, max 64 chars)
+//   - tenantSlug: string (required, immutable, matches tenantSlug)
+//   - actor: string (required, 1..100 chars) - Actor performing the action
+//   - action: string (required, 1..500 chars) - Action description
+//   - resource: string (required, 1..120 chars) - Affected resource identifier
+//   - timestamp: string (required, 1..50 chars) - Log timestamp
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns a user-scoped resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user is owner based on document's uid field
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    // Verify UID hasn't been tampered with on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure uid field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Validate required fields exist
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate that the document contains only the allowed fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate that immutable fields have not changed during an update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate string length on request.resource.data
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validate optional string (if present, must be string and within length bounds)
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen);
+    }
+
+    // Validate that a list is a list and enforces size limits
+    function isValidList(list, maxSize) {
+      return list is list && list.size() <= maxSize;
+    }
+
+    // Validate optional timestamp or string date representation
+    function isValidOptionalDateOrTimestamp(field) {
+      return !(field in request.resource.data) ||
+        request.resource.data[field] is timestamp ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= 1 &&
+         request.resource.data[field].size() <= 50);
+    }
+
+    // ===============================================================
+    // Multi-Tenant Authorization Helpers
+    // ===============================================================
+
+    // Retrieve tenant document data
+    function getTenantDoc(tenantSlug) {
+      return get(/databases/$(database)/documents/tenants/$(tenantSlug));
+    }
+
+    // Check if the authenticated user is the owner of the specified tenant
+    function isTenantOwner(tenantSlug) {
+      let tenantDoc = getTenantDoc(tenantSlug);
+      return isAuthenticated() &&
+        tenantDoc != null &&
+        tenantDoc.data.ownerUid == request.auth.uid;
+    }
+
+    // Check if the authenticated user is a registered staff member of the tenant
+    function isTenantStaff(tenantSlug) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/tenants/$(tenantSlug)/staff/$(request.auth.uid));
+    }
+
+    // Check if the authenticated user is a registered driver of the tenant (by UID doc or staff record)
+    function isTenantDriver(tenantSlug) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/tenants/$(tenantSlug)/drivers/$(request.auth.uid));
+    }
+
+    // Owner or staff of the tenant (administrative access)
+    function isTenantOwnerOrStaff(tenantSlug) {
+      return isTenantOwner(tenantSlug) || isTenantStaff(tenantSlug);
+    }
+
+    // Any authenticated member belonging to the tenant (owner, staff, or driver)
+    function isTenantMember(tenantSlug) {
+      return isTenantOwner(tenantSlug) || isTenantStaff(tenantSlug) || isTenantDriver(tenantSlug);
+    }
+
+    // ===============================================================
+    // Domain Validators (Used in BOTH create and update)
+    // ===============================================================
+
+    function isValidTenant(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'slug', 'name', 'crNumber', 'vatNumber', 'licenseNumber',
+        'whatsappPhone', 'supportPhone', 'iban', 'city', 'primaryColor',
+        'monthlyFee', 'districts', 'planTier', 'ownerUid', 'createdAt'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['slug', 'name', 'vatNumber', 'whatsappPhone', 'ownerUid']) &&
+        data.slug == tenantSlug &&
+        validStringLength('slug', 2, 64) &&
+        data.slug.matches('^[a-z0-9-]+$') &&
+        validStringLength('name', 2, 150) &&
+        validStringLength('vatNumber', 15, 15) &&
+        data.vatNumber.matches('^3[0-9]{13}3$') &&
+        validStringLength('whatsappPhone', 8, 20) &&
+        validStringLength('ownerUid', 1, 128) &&
+        isValidOptionalString('id', 1, 64) &&
+        isValidOptionalString('crNumber', 1, 20) &&
+        isValidOptionalString('licenseNumber', 1, 50) &&
+        isValidOptionalString('supportPhone', 5, 20) &&
+        isValidOptionalString('iban', 10, 34) &&
+        isValidOptionalString('city', 2, 50) &&
+        isValidOptionalString('primaryColor', 4, 20) &&
+        (!('monthlyFee' in data) || (data.monthlyFee is number && data.monthlyFee > 0 && data.monthlyFee <= 50000)) &&
+        (!('districts' in data) || (isValidList(data.districts, 50) && (data.districts.size() == 0 || (data.districts[0] is string && data.districts[0].size() <= 80)))) &&
+        (!('planTier' in data) || data.planTier in ['basic', 'pro', 'enterprise']) &&
+        isValidOptionalDateOrTimestamp('createdAt');
+    }
+
+    function isValidStaff(data, tenantSlug, staffUid) {
+      let allowedFields = ['uid', 'tenantSlug', 'name', 'role', 'phone', 'createdAt'];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['uid', 'tenantSlug', 'name', 'role']) &&
+        data.uid == staffUid &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('uid', 1, 128) &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('name', 1, 100) &&
+        data.role in ['manager', 'dispatcher', 'accountant', 'driver'] &&
+        isValidOptionalString('phone', 5, 20) &&
+        isValidOptionalDateOrTimestamp('createdAt');
+    }
+
+    function isValidStudent(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'name', 'phone', 'guardianPhone', 'district',
+        'university', 'bus', 'status', 'boardingStatus', 'amount',
+        'invoiceNo', 'zatcaQrBase64', 'lastBoardedAt', 'createdAt'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'name', 'amount']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('name', 2, 120) &&
+        data.amount is number &&
+        data.amount >= 0 &&
+        data.amount <= 100000 &&
+        isValidOptionalString('id', 1, 64) &&
+        isValidOptionalString('phone', 5, 20) &&
+        isValidOptionalString('guardianPhone', 5, 20) &&
+        isValidOptionalString('district', 1, 80) &&
+        isValidOptionalString('university', 1, 150) &&
+        isValidOptionalString('bus', 1, 80) &&
+        (!('status' in data) || data.status in ['paid', 'overdue', 'suspended']) &&
+        (!('boardingStatus' in data) || data.boardingStatus in ['none', 'boarded', 'missed']) &&
+        isValidOptionalString('invoiceNo', 1, 50) &&
+        isValidOptionalString('zatcaQrBase64', 1, 2048) &&
+        isValidOptionalString('lastBoardedAt', 1, 50) &&
+        isValidOptionalDateOrTimestamp('createdAt');
+    }
+
+    function isValidBus(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'plate', 'model', 'capacity', 'assignedDriver',
+        'route', 'operationCardNo', 'operationCardExpiry', 'daysLeft', 'status'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'plate', 'model', 'capacity']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('plate', 1, 30) &&
+        validStringLength('model', 1, 100) &&
+        data.capacity is number &&
+        data.capacity > 0 &&
+        data.capacity <= 100 &&
+        isValidOptionalString('id', 1, 64) &&
+        isValidOptionalString('assignedDriver', 1, 100) &&
+        isValidOptionalString('route', 1, 150) &&
+        isValidOptionalString('operationCardNo', 1, 50) &&
+        isValidOptionalString('operationCardExpiry', 1, 30) &&
+        (!('daysLeft' in data) || (data.daysLeft is number && data.daysLeft >= -3650 && data.daysLeft <= 3650)) &&
+        (!('status' in data) || data.status in ['active', 'warning', 'expired']);
+    }
+
+    function isValidDriver(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'uid', 'name', 'phone', 'nationalId',
+        'licenseType', 'licenseExpiry', 'driverCardNo', 'daysLeft',
+        'busAssigned', 'status'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'name', 'phone']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('name', 2, 100) &&
+        validStringLength('phone', 8, 20) &&
+        isValidOptionalString('id', 1, 64) &&
+        isValidOptionalString('uid', 1, 128) &&
+        isValidOptionalString('nationalId', 5, 20) &&
+        isValidOptionalString('licenseType', 1, 60) &&
+        isValidOptionalString('licenseExpiry', 1, 30) &&
+        isValidOptionalString('driverCardNo', 1, 50) &&
+        (!('daysLeft' in data) || (data.daysLeft is number && data.daysLeft >= -3650 && data.daysLeft <= 3650)) &&
+        isValidOptionalString('busAssigned', 1, 100) &&
+        (!('status' in data) || data.status in ['active', 'warning', 'expired']);
+    }
+
+    function isValidRoute(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'name', 'districts', 'university',
+        'monthlyPrice', 'bus', 'enrolled'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'name', 'districts', 'university', 'monthlyPrice']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('name', 2, 120) &&
+        validStringLength('districts', 1, 500) &&
+        validStringLength('university', 2, 150) &&
+        data.monthlyPrice is number &&
+        data.monthlyPrice > 0 &&
+        data.monthlyPrice <= 50000 &&
+        isValidOptionalString('id', 1, 64) &&
+        isValidOptionalString('bus', 1, 100) &&
+        (!('enrolled' in data) || (data.enrolled is number && data.enrolled >= 0 && data.enrolled <= 500));
+    }
+
+    function isValidNotification(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'recipientPhone', 'channel', 'message', 'sentAt'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'recipientPhone', 'channel', 'message', 'sentAt']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('recipientPhone', 8, 20) &&
+        data.channel in ['whatsapp', 'sms'] &&
+        validStringLength('message', 1, 1000) &&
+        validStringLength('sentAt', 1, 50) &&
+        isValidOptionalString('id', 1, 64);
+    }
+
+    function isValidAuditLog(data, tenantSlug) {
+      let allowedFields = [
+        'id', 'tenantSlug', 'actor', 'action', 'resource', 'timestamp'
+      ];
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(['tenantSlug', 'actor', 'action', 'resource', 'timestamp']) &&
+        data.tenantSlug == tenantSlug &&
+        validStringLength('tenantSlug', 2, 64) &&
+        validStringLength('actor', 1, 100) &&
+        validStringLength('action', 1, 500) &&
+        validStringLength('resource', 1, 120) &&
+        validStringLength('timestamp', 1, 50) &&
+        isValidOptionalString('id', 1, 64);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /tenants/{tenantSlug} {
+      // Public read allowed so students/parents can view the company's booking page (/slug)
+      allow read: if true;
+
+      // Authenticated users can register a new tenant if they set themselves as ownerUid
+      // and all required strings (name, vatNumber, whatsappPhone, slug) pass validation
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        isValidTenant(request.resource.data, tenantSlug);
+
+      // Only the tenant owner or registered staff of this tenant can update settings;
+      // ownerUid, slug, and createdAt are strictly immutable to prevent ownership hijacking
+      allow update: if (resource.data.ownerUid == request.auth.uid || isTenantStaff(tenantSlug)) &&
+        isValidTenant(request.resource.data, tenantSlug) &&
+        areImmutableFieldsUnchanged(['ownerUid', 'slug', 'createdAt']);
+
+      // Only the tenant owner can delete the tenant profile
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+
+      // ---------------------------------------------------------------
+      // Tenant Staff Subcollection (/tenants/{tenantSlug}/staff/{staffUid})
+      // ---------------------------------------------------------------
+      match /staff/{staffUid} {
+        allow read: if isTenantMember(tenantSlug) || isOwner(staffUid);
+
+        // Only the tenant owner can add, update, or remove staff members (prevents self-escalation)
+        allow create: if isTenantOwner(tenantSlug) &&
+          isValidStaff(request.resource.data, tenantSlug, staffUid);
+
+        allow update: if isTenantOwner(tenantSlug) &&
+          isValidStaff(request.resource.data, tenantSlug, staffUid) &&
+          areImmutableFieldsUnchanged(['uid', 'tenantSlug', 'createdAt']);
+
+        allow delete: if isTenantOwner(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Students Subcollection (/tenants/{tenantSlug}/students/{studentId})
+      // ---------------------------------------------------------------
+      match /students/{studentId} {
+        // Read allowed only for authenticated tenant owner, staff, or drivers of this tenant
+        allow read: if isTenantMember(tenantSlug);
+
+        // Public/student checkout create allowed when scoped to an existing tenantSlug
+        // and validated with isValidStudent (enforcing name, amount, and field length limits)
+        allow create: if exists(/databases/$(database)/documents/tenants/$(tenantSlug)) &&
+          isValidStudent(request.resource.data, tenantSlug);
+
+        // Update allowed for tenant owner, staff, or drivers (e.g. driver marking boardingStatus);
+        // drivers can only update boardingStatus and lastBoardedAt while preserving all other fields
+        allow update: if isValidStudent(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug', 'createdAt']) &&
+          (
+            isTenantOwnerOrStaff(tenantSlug) ||
+            (
+              isTenantDriver(tenantSlug) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['boardingStatus', 'lastBoardedAt'])
+            )
+          );
+
+        // Delete allowed for tenant owner or staff
+        allow delete: if isTenantOwnerOrStaff(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Buses Subcollection (/tenants/{tenantSlug}/buses/{busId})
+      // ---------------------------------------------------------------
+      match /buses/{busId} {
+        allow read: if isTenantMember(tenantSlug);
+
+        allow create: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidBus(request.resource.data, tenantSlug);
+
+        allow update: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidBus(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug']);
+
+        allow delete: if isTenantOwnerOrStaff(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Drivers Subcollection (/tenants/{tenantSlug}/drivers/{driverId})
+      // ---------------------------------------------------------------
+      match /drivers/{driverId} {
+        allow read: if isTenantMember(tenantSlug);
+
+        allow create: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidDriver(request.resource.data, tenantSlug);
+
+        allow update: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidDriver(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug']);
+
+        allow delete: if isTenantOwnerOrStaff(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Routes Subcollection (/tenants/{tenantSlug}/routes/{routeId})
+      // ---------------------------------------------------------------
+      match /routes/{routeId} {
+        // Public read allowed so students can view available routes & pricing on the booking page
+        allow read: if true;
+
+        allow create: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidRoute(request.resource.data, tenantSlug);
+
+        allow update: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidRoute(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug']);
+
+        allow delete: if isTenantOwnerOrStaff(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Notifications Subcollection (/tenants/{tenantSlug}/notifications/{notId})
+      // ---------------------------------------------------------------
+      match /notifications/{notId} {
+        allow read: if isTenantMember(tenantSlug);
+
+        allow create: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidNotification(request.resource.data, tenantSlug);
+
+        allow update: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidNotification(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug', 'sentAt']);
+
+        allow delete: if isTenantOwnerOrStaff(tenantSlug);
+      }
+
+      // ---------------------------------------------------------------
+      // Audit Logs Subcollection (/tenants/{tenantSlug}/auditLogs/{logId})
+      // ---------------------------------------------------------------
+      match /auditLogs/{logId} {
+        allow read: if isTenantMember(tenantSlug);
+
+        // Audit logs can be created by tenant owner or staff, and are append-only (immutable)
+        allow create: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidAuditLog(request.resource.data, tenantSlug);
+
+        allow update: if isTenantOwnerOrStaff(tenantSlug) &&
+          isValidAuditLog(request.resource.data, tenantSlug) &&
+          areImmutableFieldsUnchanged(['id', 'tenantSlug', 'actor', 'action', 'resource', 'timestamp']);
+
+        allow delete: if isTenantOwner(tenantSlug);
+      }
+    }
+
+    // ===============================================================
+    // Default Deny (Catch-All)
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

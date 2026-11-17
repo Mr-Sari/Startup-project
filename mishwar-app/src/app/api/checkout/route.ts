@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, syncToFirestore } from "@/lib/db";
 import { generateZatcaQrBase64, calculateSaudiVat } from "@/lib/zatca";
 
 /**
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   };
 
   db.students.unshift(newStudent);
+  await syncToFirestore(tenant.slug, "students", newStudent.id, newStudent as unknown as Record<string, unknown>);
 
   db.notifications.unshift({
     id: `not-${Date.now()}`,

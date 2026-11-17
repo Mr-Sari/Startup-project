@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, syncToFirestore } from "@/lib/db";
+import { isFirebaseConfigured } from "@/lib/firebase";
 import { generateZatcaQrBase64, calculateSaudiVat } from "@/lib/zatca";
 
 export async function GET(req: NextRequest) {
@@ -8,6 +9,7 @@ export async function GET(req: NextRequest) {
     db.tenants.find((t) => t.slug === tenantSlug) || db.tenants[0];
 
   return NextResponse.json({
+    firebaseConnected: isFirebaseConfigured,
     tenantSlug: currentTenant.slug,
     tenant: currentTenant,
     allTenants: db.tenants,
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
     };
 
     db.tenants.push(newTenant);
+    await syncToFirestore(newTenant.slug, null, newTenant.slug, newTenant as unknown as Record<string, unknown>);
 
     db.auditLogs.unshift({
       id: `aud-${Date.now()}`,
@@ -100,7 +103,6 @@ export async function POST(req: NextRequest) {
         .filter(Boolean);
     }
 
-    // Re-generate ZATCA QR codes for existing invoices of this tenant so they reflect updated Seller Name & VAT Number
     db.students
       .filter((s) => s.tenantSlug === tenantSlug)
       .forEach((student) => {
@@ -113,6 +115,8 @@ export async function POST(req: NextRequest) {
           vatTotal: vatAmount.toFixed(2),
         });
       });
+
+    await syncToFirestore(tenant.slug, null, tenant.slug, tenant as unknown as Record<string, unknown>);
 
     db.auditLogs.unshift({
       id: `aud-${Date.now()}`,
@@ -141,6 +145,8 @@ export async function POST(req: NextRequest) {
       status: "active" as const,
     };
     db.buses.push(newBus);
+    await syncToFirestore(tenantSlug, "buses", newBus.id, newBus as unknown as Record<string, unknown>);
+
     db.auditLogs.unshift({
       id: `aud-${Date.now()}`,
       tenantSlug,
@@ -167,6 +173,8 @@ export async function POST(req: NextRequest) {
       status: "active" as const,
     };
     db.drivers.push(newDriver);
+    await syncToFirestore(tenantSlug, "drivers", newDriver.id, newDriver as unknown as Record<string, unknown>);
+
     db.auditLogs.unshift({
       id: `aud-${Date.now()}`,
       tenantSlug,
@@ -190,6 +198,8 @@ export async function POST(req: NextRequest) {
       enrolled: 0,
     };
     db.routes.push(newRoute);
+    await syncToFirestore(tenantSlug, "routes", newRoute.id, newRoute as unknown as Record<string, unknown>);
+
     db.auditLogs.unshift({
       id: `aud-${Date.now()}`,
       tenantSlug,
@@ -205,6 +215,8 @@ export async function POST(req: NextRequest) {
     const student = db.students.find((s) => s.id === payload.studentId && s.tenantSlug === tenantSlug);
     if (student) {
       student.status = student.status === "suspended" ? "paid" : "suspended";
+      await syncToFirestore(tenantSlug, "students", student.id, student as unknown as Record<string, unknown>);
+
       db.auditLogs.unshift({
         id: `aud-${Date.now()}`,
         tenantSlug,
@@ -232,14 +244,18 @@ export async function POST(req: NextRequest) {
           ? `تنبيه من ${tenant.name} (واتساب: ${tenant.whatsappPhone}): نحيطكم علماً بأن الطالبة (${student.name}) قد ركبت الحافلة (${student.bus}) بأمان الساعة ${student.lastBoardedAt} متجهة إلى ${student.university}.`
           : `تنبيه من ${tenant.name}: تم تسجيل عدم ركوب الطالبة (${student.name}) في جولة اليوم.`;
 
-      db.notifications.unshift({
+      const notif = {
         id: `not-${Date.now()}`,
         tenantSlug,
         recipientPhone: student.guardianPhone,
-        channel: "whatsapp",
+        channel: "whatsapp" as const,
         message,
         sentAt: new Date().toLocaleTimeString("ar-SA"),
-      });
+      };
+      db.notifications.unshift(notif);
+
+      await syncToFirestore(tenantSlug, "students", student.id, student as unknown as Record<string, unknown>);
+      await syncToFirestore(tenantSlug, "notifications", notif.id, notif as unknown as Record<string, unknown>);
 
       db.auditLogs.unshift({
         id: `aud-${Date.now()}`,

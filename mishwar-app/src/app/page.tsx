@@ -30,59 +30,63 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { MishwarAICopilot } from "@/components/mishwar-ai-copilot";
 
 export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       {/* Top Regulatory Banner */}
-      <div className="bg-slate-950 text-slate-300 text-[11px] py-2 px-4 border-b border-slate-800">
+      <div className="royal-gradient text-slate-200 text-[11px] py-2.5 px-4 border-b border-emerald-900/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-medium text-slate-200">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="font-semibold text-white">
               المنظومة السحابية لمؤسسات النقل الجامعي المرخصة في المملكة العربية السعودية
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-4 text-slate-400">
+          <div className="hidden md:flex items-center gap-4 text-emerald-200/80 font-medium">
             <span>متوافق مع اشتراطات الهيئة العامة للنقل (TGA)</span>
             <span>•</span>
             <span>الفوترة الضريبية (ZATCA)</span>
             <span>•</span>
-            <span>حماية البيانات (PDPL)</span>
+            <span>مربوط مع Google Firebase & AI Agent</span>
           </div>
         </div>
       </div>
 
       {/* Main Navigation Header */}
-      <header className="border-b bg-card/90 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b bg-card/85 backdrop-blur-xl sticky top-0 z-40 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
-              <Bus className="w-5 h-5 stroke-[2]" />
+            <div className="w-11 h-11 rounded-xl royal-gradient text-white flex items-center justify-center shadow-md ring-1 ring-emerald-500/30">
+              <Bus className="w-5 h-5 stroke-[2.2] text-emerald-300" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-black tracking-tight">مِشـوار</span>
-                <Badge variant="secondary" className="text-[10px] font-bold">
-                  B2B SaaS
+                <span className="text-xl font-black tracking-tight text-foreground">صَرْحِي</span>
+                <Badge className="bg-emerald-600/15 text-emerald-800 border border-emerald-600/30 text-[10px] font-bold">
+                  Sarhy SaaS
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground">نظام التشغيل المستقل لمؤسسات نقل الطالبات</p>
+              <p className="text-[11px] text-muted-foreground font-medium">نظام التشغيل المستقل لمؤسسات نقل الطالبات</p>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-muted-foreground">
-            <a href="#preview" className="hover:text-foreground transition">معاينة المنظومة</a>
-            <a href="#how-it-works" className="hover:text-foreground transition">كيف يشتغل؟</a>
-            <a href="#features" className="hover:text-foreground transition">مميزات المؤسسة</a>
-            <a href="#pricing" className="hover:text-foreground transition">الباقات والأسعار</a>
+          <nav className="hidden md:flex items-center gap-7 text-xs font-bold text-muted-foreground">
+            <a href="#preview" className="hover:text-primary transition">معاينة المنظومة</a>
+            <a href="#how-it-works" className="hover:text-primary transition">كيف يشتغل؟</a>
+            <a href="#features" className="hover:text-primary transition">مميزات المؤسسة</a>
+            <a href="#pricing" className="hover:text-primary transition">الباقات والأسعار</a>
           </nav>
 
           <div className="flex items-center gap-2.5">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard">لوحة المؤسسة</Link>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex font-bold">
+              <Link href="/pitch">العرض الاستثماري (Pitch Deck)</Link>
             </Button>
-            <Button size="sm" asChild>
+            <Button variant="outline" size="sm" asChild className="font-bold border-emerald-700/30 hover:bg-emerald-50">
+              <Link href="/dashboard">لوحة المؤسسة + AI Agent</Link>
+            </Button>
+            <Button size="sm" asChild className="font-bold shadow-sm">
               <Link href="/register-tenant">تجربة مجانية 14 يوم</Link>
             </Button>
           </div>
@@ -90,16 +94,18 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-14 pb-20 border-b bg-gradient-to-b from-muted/30 via-background to-background">
+      <section className="relative pt-16 pb-22 border-b bg-grid-pattern">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-card text-xs font-semibold mb-6 shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-600/25 bg-emerald-50/80 text-emerald-900 text-xs font-bold mb-6 shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>موقع مستقل باسم مؤسستك • بدون عمولة على اشتراكات الطالبات • بدون عرض منافسين</span>
+            <span>هوية بصرية فاخرة • وكيل ذكاء اصطناعي ينفذ الأوامر مباشرة • بدون عمولة على الاشتراكات</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.2] mb-6 max-w-4xl mx-auto">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.22] mb-6 max-w-4xl mx-auto text-slate-950">
             كل مؤسسة نقل تاخذ موقعها الخاص، <br />
-            <span className="text-muted-foreground">وتدير منه شغلها وأسطولها كله.</span>
+            <span className="bg-gradient-to-l from-emerald-800 via-emerald-600 to-teal-700 bg-clip-text text-transparent">
+              وتدير أسطولها بالذكاء الاصطناعي.
+            </span>
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mb-9 leading-relaxed">
@@ -519,9 +525,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-bold text-[11px]">
-              م
+              ص
             </div>
-            <span className="font-bold text-foreground">مشوار (Mishwar SaaS)</span>
+            <span className="font-bold text-foreground">صَرْحِي (Sarhy SaaS)</span>
             <span>— نظام إدارة وتشغيل مؤسسات النقل الجامعي المرخصة في السعودية</span>
           </div>
           <div className="flex items-center gap-4">
@@ -531,6 +537,9 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Real Agentic AI Chatbot across the Platform */}
+      <MishwarAICopilot tenantSlug="darb-alaman" />
     </div>
   );
 }
