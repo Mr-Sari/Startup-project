@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { apiUrl } from "@/lib/api-base";
 
 export default function RegisterTenantPage() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function RegisterTenantPage() {
     setErrorMsg(null);
 
     try {
-      const res = await fetch("/api/tenant-data", {
+      const res = await fetch(apiUrl("/api/tenant-data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

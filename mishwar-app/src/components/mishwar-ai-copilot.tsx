@@ -36,6 +36,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiUrl } from "@/lib/api-base";
 
 interface ExecutedActionPayload {
   widgetType: string;
@@ -176,7 +177,7 @@ export function MishwarAICopilot({
     setIsStreaming(true);
 
     try {
-      const res = await fetch("/api/ai-agent", {
+      const res = await fetch(apiUrl("/api/ai-agent"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -249,7 +250,7 @@ export function MishwarAICopilot({
     );
     setIsStreaming(true);
     try {
-      const res = await fetch("/api/ai-agent", {
+      const res = await fetch(apiUrl("/api/ai-agent"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantSlug, confirmActionId: pendingId, approve }),

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { apiUrl } from "@/lib/api-base";
 
 interface DriverStudent {
   id: string;
@@ -32,7 +33,7 @@ function DriverContent() {
   const fetchManifest = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tenant-data?tenant=${currentSlug}`);
+      const res = await fetch(apiUrl(`/api/tenant-data?tenant=${currentSlug}`));
       const data = await res.json();
       if (data.tenant) setTenantName(data.tenant.name);
       if (data.students) setStudents(data.students);
@@ -55,7 +56,7 @@ function DriverContent() {
       prev.map((s) => (s.id === studentId ? { ...s, boardingStatus } : s))
     );
 
-    await fetch("/api/tenant-data", {
+    await fetch(apiUrl("/api/tenant-data"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
