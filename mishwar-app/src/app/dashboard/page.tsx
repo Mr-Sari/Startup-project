@@ -63,6 +63,7 @@ import type {
   AuditLogEntry,
   NotificationLogEntry,
 } from "@/lib/db";
+import { apiUrl } from "@/lib/api-base";
 
 type DashboardSection =
   | "subscriptions"
@@ -151,7 +152,7 @@ function DashboardContent() {
   const loadTenantData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tenant-data?tenant=${currentSlug}`);
+      const res = await fetch(apiUrl(`/api/tenant-data?tenant=${currentSlug}`));
       const data = await res.json();
       if (data.tenant) {
         setTenant(data.tenant);
@@ -191,7 +192,7 @@ function DashboardContent() {
     e.preventDefault();
     setIsSubmittingModal(true);
     try {
-      const res = await fetch("/api/tenant-data", {
+      const res = await fetch(apiUrl("/api/tenant-data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ function DashboardContent() {
     e.preventDefault();
     setIsSubmittingModal(true);
     try {
-      const res = await fetch("/api/tenant-data", {
+      const res = await fetch(apiUrl("/api/tenant-data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -255,7 +256,7 @@ function DashboardContent() {
     e.preventDefault();
     setIsSubmittingModal(true);
     try {
-      const res = await fetch("/api/tenant-data", {
+      const res = await fetch(apiUrl("/api/tenant-data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -289,7 +290,7 @@ function DashboardContent() {
     e.preventDefault();
     setIsSubmittingModal(true);
     try {
-      const res = await fetch("/api/tenant-data", {
+      const res = await fetch(apiUrl("/api/tenant-data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -320,7 +321,7 @@ function DashboardContent() {
   };
 
   const toggleStudentSuspension = async (studentId: string) => {
-    const res = await fetch("/api/tenant-data", {
+    const res = await fetch(apiUrl("/api/tenant-data"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -336,7 +337,7 @@ function DashboardContent() {
   };
 
   const sendWhatsAppPaymentReminder = async (student: StudentRecord) => {
-    const res = await fetch("/api/notifications", {
+    const res = await fetch(apiUrl("/api/notifications"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

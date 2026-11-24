@@ -16,6 +16,13 @@ import {
   GraduationCap,
   FileCheck2,
   PlusCircle,
+  ShieldAlert,
+  Circle,
+  XCircle,
+  Clock3,
+  LayoutDashboard,
+  BellRing,
+  FileWarning,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +36,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiUrl } from "@/lib/api-base";
 
 interface ExecutedActionPayload {
   widgetType: string;
@@ -43,6 +51,21 @@ interface InteractiveFormSpec {
   submitted?: boolean;
 }
 
+interface AgentStep {
+  tool: string;
+  label: string;
+  kind: "read" | "write" | "sensitive" | "ui";
+  ok: boolean;
+  summary: string;
+  status: "done" | "failed" | "awaiting_confirmation";
+}
+
+interface PendingSpec {
+  id: string;
+  items: { tool: string; label: string; summary: string }[];
+  state: "open" | "running" | "approved" | "rejected";
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -50,7 +73,17 @@ interface ChatMessage {
   timestamp: string;
   action?: ExecutedActionPayload;
   interactiveForm?: InteractiveFormSpec;
+  steps?: AgentStep[];
+  pending?: PendingSpec;
+  notice?: string;
+  mode?: string;
 }
+
+let uidCounter = 0;
+const uid = (prefix: string) => `${prefix}-${Date.now()}-${++uidCounter}`;
+
+const nowTime = () =>
+  new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
 
 export function MishwarAICopilot({
   tenantSlug = "darb-alaman",
@@ -107,7 +140,7 @@ export function MishwarAICopilot({
     {
       id: "welcome-1",
       role: "assistant",
-      text: "أهلاً بك! أنا وكيل مشوار التفاعلي (Interactive AI Agent).\nقل لي مثلاً: «أضف طالبة» أو «أضف باص» أو «سجل سائق» وسأعطيك بطاقة البيانات اللازمة لتعبئتها واعتمادها فوراً في الموقع وقاعدة بيانات Firebase!",
+      text: "هلا! أنا وكيل مشوار — أنفذ المهام فعلياً، مو بس أجاوب.\nأقرأ بيانات مؤسستك، وأنفذ عدة خطوات ورا بعض، وأطلب تأكيدك قبل أي إجراء حساس.\n\nجرّب مثلاً:\n• «أوقف المتأخرات وأرسل لهم تذكير»\n• «أي رخص أو كروت تنتهي هالشهر؟ وجدد كرت باص 01»\n• «منيرة سددت، وانقل شهد لباص 02»",
       timestamp: "الآن",
     },
   ]);
@@ -134,20 +167,17 @@ export function MishwarAICopilot({
     }
 
     const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
+      id: uid("u"),
       role: "user",
       text: textInput,
-      timestamp: new Date().toLocaleTimeString("ar-SA", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      timestamp: nowTime(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
 
     try {
-      const res = await fetch("/api/ai-agent", {
+      const res = await fetch(apiUrl("/api/ai-agent"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -155,6 +185,10 @@ export function MishwarAICopilot({
           tenantSlug,
           previousInteractionId: interactionId,
           directTool,
+          history: messages
+            .filter((m) => m.id !== "welcome-1" && m.text)
+            .slice(-12)
+            .map((m) => ({ role: m.role, text: m.text })),
         }),
       });
 
@@ -171,22 +205,25 @@ export function MishwarAICopilot({
       }
 
       const assistantMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
+        id: uid("a"),
         role: "assistant",
         text: data.reply || "تفضل بتعبئة البيانات اللازمة:",
-        timestamp: new Date().toLocaleTimeString("ar-SA", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        timestamp: nowTime(),
         action: data.actionExecuted,
         interactiveForm: data.interactiveForm,
+        steps: data.steps,
+        notice: data.notice,
+        mode: data.mode,
+        pending: data.pendingAction
+          ? { id: data.pendingAction.id, items: data.pendingAction.items, state: "open" }
+          : undefined,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      if (data.actionExecuted) {
-        onActionCompleted?.(data.actionExecuted.summary);
-        if (data.actionExecuted.navigateToSection) {
+      if (data.mutated || data.actionExecuted) {
+        onActionCompleted?.(data.actionExecuted?.summary ?? "نفّذ الوكيل الإجراءات المطلوبة");
+        if (data.actionExecuted?.navigateToSection) {
           onNavigateSection?.(data.actionExecuted.navigateToSection);
         }
       }
@@ -194,12 +231,56 @@ export function MishwarAICopilot({
       setMessages((prev) => [
         ...prev,
         {
-          id: `err-${Date.now()}`,
+          id: uid("err"),
           role: "assistant",
           text: "تعذر الاتصال بمحرك الذكاء الاصطناعي، يرجى المحاولة مرة أخرى.",
           timestamp: "الآن",
         },
       ]);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const resolvePending = async (msgId: string, pendingId: string, approve: boolean) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId && m.pending ? { ...m, pending: { ...m.pending, state: "running" } } : m
+      )
+    );
+    setIsStreaming(true);
+    try {
+      const res = await fetch(apiUrl("/api/ai-agent"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantSlug, confirmActionId: pendingId, approve }),
+      });
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev.map((m) =>
+          m.id === msgId && m.pending
+            ? { ...m, pending: { ...m.pending, state: approve ? ("approved" as const) : ("rejected" as const) } }
+            : m
+        ),
+        {
+          id: uid("c"),
+          role: "assistant" as const,
+          text: data.reply,
+          timestamp: nowTime(),
+          steps: data.steps,
+          action: data.actionExecuted,
+        },
+      ]);
+      if (data.mutated) {
+        onActionCompleted?.(data.actionExecuted?.summary ?? "تم تنفيذ الإجراءات المؤكدة");
+        if (data.actionExecuted?.navigateToSection) onNavigateSection?.(data.actionExecuted.navigateToSection);
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.pending ? { ...m, pending: { ...m.pending, state: "open" } } : m
+        )
+      );
     } finally {
       setIsStreaming(false);
     }
@@ -218,13 +299,13 @@ export function MishwarAICopilot({
             <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
           </div>
           <div className="text-right">
-            <div className="font-bold text-xs leading-none">وكيل صَرْحِي التفاعلي (AI Agent)</div>
+            <div className="font-bold text-xs leading-none">وكيل مشوار الذكي (AI Agent)</div>
             <div className="text-[10px] text-emerald-300/90 font-normal mt-1">
-              اطلب إضافة طالبة أو باص أو سائق وتفاعل معه
+              اطلب أي مهمة وينفذها لك خطوة بخطوة
             </div>
           </div>
           <Badge className="bg-emerald-500/25 text-emerald-200 border-emerald-400/30 text-[10px] font-mono">
-            Interactive
+            Agent
           </Badge>
         </Button>
       </div>
@@ -242,11 +323,11 @@ export function MishwarAICopilot({
                   </div>
                   <div>
                     <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                      <span>وكيل صَرْحِي للعمليات التفاعلية (Sarhy AI)</span>
+                      <span>وكيل مشوار للعمليات</span>
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                     </CardTitle>
                     <CardDescription className="text-[11px] text-slate-300">
-                      يفتح لك نماذج الإدخال الذكية داخل الشات ويعتمدها في Firebase
+                      يخطط وينفذ الإجراءات على بياناتك مباشرة، ويستأذنك في الحساس منها
                     </CardDescription>
                   </div>
                 </div>
@@ -263,6 +344,22 @@ export function MishwarAICopilot({
 
             {/* Interactive Trigger Chips (Opens Slot-Filling Forms!) */}
             <div className="px-3.5 py-2.5 bg-slate-900/95 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {[
+                { label: "ملخص اليوم", prompt: "وش وضع المؤسسة اليوم؟", Icon: LayoutDashboard },
+                { label: "ذكّر المتأخرات", prompt: "اعرض المتأخرات وأرسل لهم تذكير سداد", Icon: BellRing },
+                { label: "وثائق تنتهي", prompt: "أي رخص أو كروت تشغيل تنتهي خلال 30 يوم؟", Icon: FileWarning },
+              ].map(({ label, prompt: p, Icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => sendAgentMessage(p)}
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 text-amber-200 hover:bg-amber-900/50 font-bold whitespace-nowrap transition flex items-center gap-1"
+                >
+                  <Icon className="w-3 h-3" />
+                  <span>{label}</span>
+                </button>
+              ))}
               <button
                 type="button"
                 disabled={isStreaming}
@@ -333,6 +430,98 @@ export function MishwarAICopilot({
                       </div>
                     </div>
                   </div>
+
+                  {/* Agent action trace (plan → act → observe) */}
+                  {msg.role === "assistant" &&
+                    msg.steps &&
+                    (msg.steps.filter((s) => s.kind !== "ui").length > 1 ||
+                      msg.steps.some((s) => s.kind === "write" || s.kind === "sensitive" || !s.ok)) && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-1.5">
+                      <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between">
+                        <span>خطوات التنفيذ</span>
+                        {msg.mode && (
+                          <span className="font-mono text-[9px] text-slate-500">
+                            {msg.mode === "llm" ? "Gemini" : msg.mode === "rules" ? "Rules" : "Form"}
+                          </span>
+                        )}
+                      </div>
+                      <ol className="space-y-1.5">
+                        {msg.steps
+                          .filter((s) => s.kind !== "ui")
+                          .map((s, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[11px] leading-relaxed">
+                              {s.status === "done" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                              ) : s.status === "awaiting_confirmation" ? (
+                                <Clock3 className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                              ) : s.status === "failed" ? (
+                                <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                              ) : (
+                                <Circle className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                              )}
+                              <div className="min-w-0">
+                                <span className="font-bold text-slate-200">{s.label}</span>
+                                <span className="text-slate-400"> — {s.summary}</span>
+                              </div>
+                            </li>
+                          ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* Human-in-the-loop confirmation card */}
+                  {msg.pending && (
+                    <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 p-3.5 space-y-2.5">
+                      <div className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>
+                          {msg.pending.state === "approved"
+                            ? "تم التأكيد والتنفيذ"
+                            : msg.pending.state === "rejected"
+                              ? "تم الإلغاء"
+                              : "إجراءات حساسة تنتظر موافقتك"}
+                        </span>
+                      </div>
+                      <ul className="space-y-1">
+                        {msg.pending.items.map((it, i) => (
+                          <li key={i} className="text-[11px] text-slate-200 leading-relaxed">
+                            • <span className="font-bold">{it.label}:</span>{" "}
+                            <span className="text-slate-300">{it.summary}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {(msg.pending.state === "open" || msg.pending.state === "running") && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            disabled={msg.pending.state === "running" || isStreaming}
+                            onClick={() => resolvePending(msg.id, msg.pending!.id, true)}
+                            className="flex-1 h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                          >
+                            {msg.pending.state === "running" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>أكّد ونفّذ</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={msg.pending.state === "running" || isStreaming}
+                            onClick={() => resolvePending(msg.id, msg.pending!.id, false)}
+                            className="h-8 text-[11px] bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
+                          >
+                            إلغاء
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {msg.notice && (
+                    <div className="text-[10px] text-slate-500 px-1">{msg.notice}</div>
+                  )}
 
                   {/* 1. INTERACTIVE INLINE FORM: ADD STUDENT */}
                   {msg.interactiveForm?.formType === "student-form" && !msg.interactiveForm.submitted && (
@@ -840,7 +1029,7 @@ export function MishwarAICopilot({
               {isStreaming && (
                 <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 flex items-center gap-3 text-slate-300">
                   <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
-                  <span className="text-xs">جاري التفاعل وتجهيز النموذج...</span>
+                  <span className="text-xs">الوكيل يخطط وينفذ...</span>
                 </div>
               )}
             </CardContent>
@@ -860,7 +1049,7 @@ export function MishwarAICopilot({
                 <Input
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="اكتب مثلاً: «أضف طالبة» أو «أضف باص» أو «سجل سائق»..."
+                  placeholder="اكتب طلبك، مثلاً: «أوقف المتأخرات وأرسل لهم تذكير»"
                   className="h-9 text-xs bg-slate-950 border-slate-800 text-white placeholder:text-slate-500 focus-visible:ring-emerald-500"
                 />
                 <Button

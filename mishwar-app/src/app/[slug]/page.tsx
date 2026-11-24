@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ZatcaQrImage } from "@/components/zatca-qr-image";
 import type { TenantProfile } from "@/lib/db";
+import { apiUrl } from "@/lib/api-base";
 
 interface IssuedInvoice {
   invoiceNo: string;
@@ -59,7 +60,7 @@ function BookingContent() {
   const [issuedInvoice, setIssuedInvoice] = useState<IssuedInvoice | null>(null);
 
   useEffect(() => {
-    fetch(`/api/tenant-data?tenant=${slug}`)
+    fetch(apiUrl(`/api/tenant-data?tenant=${slug}`))
       .then((res) => res.json())
       .then((data) => {
         if (data.tenant) {
@@ -82,7 +83,7 @@ function BookingContent() {
   const handleCheckout = async (paymentMethod: "applepay" | "mada") => {
     setIsProcessingPayment(true);
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await fetch(apiUrl("/api/checkout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
